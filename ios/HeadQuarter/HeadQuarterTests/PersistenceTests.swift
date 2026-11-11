@@ -3,7 +3,7 @@ import XCTest
 import SwiftData
 @testable import HeadQuarter
 final class PersistenceTests: XCTestCase {
-    @MainActor func testSevenSeededProjectsAndSeedIsIdempotent() throws {
+    @MainActor func testSevenSeededProjectsAndSeedIsIdempotent() async throws {
         let container = try Persistence.container(inMemory: true)
         try Persistence.seed(container.mainContext); try Persistence.seed(container.mainContext)
         let projects = try container.mainContext.fetch(FetchDescriptor<Project>())
@@ -11,14 +11,14 @@ final class PersistenceTests: XCTestCase {
         XCTAssertEqual(projects.count, 7)
         XCTAssertTrue(projects.allSatisfy { $0.health().state == .unknown && $0.progress == 0 })
     }
-    @MainActor func testDeletingAllProjectsDoesNotReseed() throws {
+    @MainActor func testDeletingAllProjectsDoesNotReseed() async throws {
         let container = try Persistence.container(inMemory: true), context = container.mainContext
         try Persistence.seed(context)
         for project in try context.fetch(FetchDescriptor<Project>()) { context.delete(project) }
         try context.save(); try Persistence.seed(context)
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<Project>()), 0)
     }
-    @MainActor func testTaskRelationshipAndWeightedProgressPersist() throws {
+    @MainActor func testTaskRelationshipAndWeightedProgressPersist() async throws {
         let container = try Persistence.container(inMemory: true), context = container.mainContext
         let project = Project(name: "Test", summary: "")
         let complete = WorkItem(title: "Complete"); complete.status = .completed; complete.weight = 3
@@ -27,7 +27,7 @@ final class PersistenceTests: XCTestCase {
         let loaded = try XCTUnwrap(context.fetch(FetchDescriptor<Project>()).first)
         XCTAssertEqual(loaded.tasks.count, 2); XCTAssertEqual(loaded.progress, 0.75)
     }
-    @MainActor func testIncidentRepeatedEvidenceAndRecovery() throws {
+    @MainActor func testIncidentRepeatedEvidenceAndRecovery() async throws {
         let container = try Persistence.container(inMemory: true), context = container.mainContext
         let store = AppStore(container: container, isDemo: true)
         let project = Project(name: "API", summary: ""), service = MonitoredService(name: "Health")
@@ -45,13 +45,13 @@ final class PersistenceTests: XCTestCase {
         store.record(.init(state: .down, explanation: "New failure", observedAt: .now, source: "Monitor"), for: service, in: project)
         XCTAssertEqual(project.incidents.count, 2)
     }
-    @MainActor func testProjectDeletionCascades() throws {
+    @MainActor func testProjectDeletionCascades() async throws {
         let container = try Persistence.container(inMemory: true), context = container.mainContext
         let project = Project(name: "Delete", summary: ""); project.tasks = [WorkItem(title: "Child")]
         context.insert(project); try context.save(); context.delete(project); try context.save()
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<WorkItem>()), 0)
     }
-    @MainActor func testBackupRestorePreservesDataAndRejectsOverwrite() throws {
+    @MainActor func testBackupRestorePreservesDataAndRejectsOverwrite() async throws {
         let container = try Persistence.container(inMemory: true), context = container.mainContext
         let project = Project(name: "Backup", summary: "Preserve me"); project.tasks = [WorkItem(title: "Important")]
         context.insert(project); try context.save()
