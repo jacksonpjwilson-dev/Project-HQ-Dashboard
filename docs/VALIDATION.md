@@ -19,12 +19,12 @@ Local results on 2026-11-11:
 | Original web app/assets/smoke-test CI vs existing base | PASS: unchanged |
 | Local Apple build and iOS Simulator tests | UNAVAILABLE: Linux host has no Xcode |
 
-The seven SwiftData/integration tests are intentionally conditional and were not counted as executed in the Linux suite. They run through the Xcode app test target, alongside the same 53 shared tests. Interactive device and Simulator UI checks have not been performed. The Mac verification script exits 127 here with: `xcodebuild is unavailable. Install Xcode on macOS and select it with xcode-select.` Consequently no local Apple build or Simulator execution is claimed. Draft PR #1 starts the native workflow on a GitHub macOS runner; its result is recorded below when available.
+The eight SwiftData/integration tests are intentionally conditional and were not counted as executed in the Linux suite. They run through the Xcode app test target, alongside the same 53 shared tests. Interactive device and Simulator UI checks have not been performed. The Mac verification script exits 127 here with: `xcodebuild is unavailable. Install Xcode on macOS and select it with xcode-select.` Consequently no local Apple build or Simulator execution is claimed. Draft PR #1 starts the native workflow on a GitHub macOS runner; its result is recorded below when available.
 
 
 ## First native validation
 
-[GitHub Actions run 43065555537](https://github.com/jacksonpjwilson-dev/Project-HQ-Dashboard/actions/runs/43065555537), commit `48a72e91104b667e21cb36a1338d853ff39924aa`, used Xcode **16.4 (16F6)** on macOS 15:
+[GitHub Actions run 43065555537](https://github.com/jacksonpjwilson-dev/Project-HQ-Dashboard/actions/runs/43065555537), commit `48a72e91104b667e21cb36a1338d853ff39924aa`, used Xcode **16.4 (16F6)** on macOS 15, with an **iPhone 16 Pro / iOS 18.5** Simulator:
 
 - HeadQuarter iPhone Simulator build: **BUILD SUCCEEDED**.
 - HeadQuarterWidgets separate Simulator build: **BUILD SUCCEEDED**.
@@ -32,4 +32,18 @@ The seven SwiftData/integration tests are intentionally conditional and were not
 - Portable Swift suite on macOS: **53 tests, 0 failures**.
 - Python relay suite on macOS: **13 tests, 0 failures**.
 
-The final revision adds a seventh persistence test for child-record import collisions and captures real light/dark Simulator screenshots. Those final-revision results are pending below. Warnings in the initial test build concern Xcode's pre-signed XCTest binaries being left unstripped; no source compilation errors occurred.
+The final source revision adds child-record collision and attention-filter persistence tests, per-component widget expiry tests, and real light/dark Simulator screenshot capture. Those results are recorded below when available. Warnings in the initial test build concern Xcode's pre-signed XCTest binaries being left unstripped; no source compilation errors occurred.
+
+
+## Final source revision
+
+Source commit: `9cf6a9b0ad423c8b18bb006bcb9af1f22c8d0bb8`.
+
+- Linux Swift 6.0.3: **57 shared tests, 0 failures** on 2026-11-12.
+- Existing web CI: **PASS**, run `43196364770`; the original web source, icon, manifest, smoke test, and CI workflow remain byte-for-byte unchanged.
+- Final-source native compilation: run [43196364843](https://github.com/jacksonpjwilson-dev/Project-HQ-Dashboard/actions/runs/43196364843) passed both app and widget builds. It was superseded after Simulator test startup stalled before any test output; it does **not** establish a completed final Simulator suite.
+- Bounded-startup retry: [43198907768](https://github.com/jacksonpjwilson-dev/Project-HQ-Dashboard/actions/runs/43198907768), CI commit `e846604a92eaba2ad6749a23dd95cc541b98ab4d`, awaiting completion. App source is unchanged from `9cf6a9b`; the retry explicitly boots Simulator, disables parallel clones, and bounds startup/test timeouts. Screenshot capture is now a separate optional step with a three-minute timeout.
+
+The final Xcode test target contains those 57 shared tests plus eight Apple-only persistence/integration tests (65 total). At handoff, the bounded-startup retry was queued without an assigned runner. The final source's **app and widget builds have passed**, but a complete run of all 65 Simulator tests has **not** been observed. Earlier intermediate runs superseded by source fixes do not establish that final runtime result. The linked retry is the source of truth for any result posted after handoff.
+
+No Simulator screenshots were produced for the final revision during this session. Optional preview capture is bounded separately from required build/test validation and uses real Simulator output only. Widget appearance, Dynamic Island/Live Activities, notification delivery/actions, Shortcuts UI navigation, accessibility, and end-to-end editing still require interactive acceptance on a Simulator or signed device.

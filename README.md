@@ -40,7 +40,7 @@ A missing or unreadable local database presents an error and retry; the app neve
 | Appearance | Apple-native tabs/navigation/forms, light/dark/system modes, Dynamic Type, semantic labels and icons as well as color, accessible error banners. |
 | Optional relay | Python standard-library service with SQLite history, periodic HTTPS checks, authenticated reads, HMAC event ingestion, replay-window checks, event-ID deduplication, and out-of-order protection. No server is deployed automatically. |
 
-These features are source implementations, not a claim of App Store readiness. Shared-core and relay behavior can be verified on Linux; Apple-specific compilation, integration tests, rendering, notifications, widgets, and Live Activities require Xcode/device validation. See [validation](docs/VALIDATION.md) for the actual results.
+The final iPhone app and widget extension compile on Xcode 16.4. The initial 59-test Simulator suite passed; the expanded 65-test runtime rerun is pending after a Simulator startup stall. This is not a claim of App Store readiness: interactive acceptance, notification delivery, widget rendering, and Live Activity behavior still need device validation. See [validation](docs/VALIDATION.md) for exact results and tested revisions.
 
 ### Health rules
 
@@ -99,6 +99,9 @@ python3 -m unittest discover -s monitoring-relay/tests -v
 
 # On a Mac: app build, separate widget build, then Simulator unit tests
 bash ci/verify-ios.sh
+
+# Optional: capture actual app previews on the booted Simulator after tests
+bash ci/capture-ios-previews.sh
 ```
 
 `HQ_SIMULATOR_UDID` optionally selects a specific simulator for the Mac script. `HQ_RESULTS_DIR` selects its DerivedData directory. The script otherwise chooses an available iPhone. It never requires device signing for Simulator checks. The checked-in Xcode project opens directly; regenerate it after adding sources with `python3 ios/HeadQuarter/tools/generate_project.py`.
@@ -107,7 +110,7 @@ For device checks: create/edit/relaunch a project and task; verify weighted prog
 
 ## Remaining work and release gates
 
-- Complete native build/test validation on macOS and interactive Simulator/device testing; there are no fabricated app screenshots or successful Xcode build claims.
+- Complete interactive Simulator/device acceptance and distribution validation. Native compilation and unit/integration tests run in macOS CI. The final 65-test runtime rerun is pending. Optional previews capture actual Simulator output; no final-revision screenshots were produced during this session.
 - Apple Watch app/complications are not included because this Linux environment does not support watchOS development or verification.
 - CloudKit sync, APNs notification delivery, ActivityKit push updates, and distribution signing/provisioning are not implemented/configured.
 - No supported Codex-session integration, remote task synchronization, GitHub commit-history UI, or automatic deployment-to-task matching is implemented. The provider/event boundaries support future additions; current GitHub integration is read-only workflow monitoring.
