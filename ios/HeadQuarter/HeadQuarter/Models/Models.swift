@@ -23,6 +23,9 @@ import SwiftData
     var progress: Double { ProgressEngine.completion(tasks.map { .init(weight: $0.weight, completed: $0.status == .completed) }) }
     func health(at now: Date = .now) -> HealthResult { HealthEngine.aggregate(services.map(\.reading), now: now, requireAll: requireAllChecks) }
     var activeIncidents: [Incident] { incidents.filter { $0.state != .resolved } }
+    var requiresAttention: Bool {
+        health().state.severity >= Health.needsHelp.severity || !activeIncidents.isEmpty || tasks.contains { $0.status == .blocked || $0.status == .failed }
+    }
 }
 @Model final class WorkItem {
     @Attribute(.unique) var id: UUID

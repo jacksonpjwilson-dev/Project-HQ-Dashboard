@@ -52,7 +52,7 @@ struct ProjectsView: View {
         let result = projects.filter { project in
             let health = project.health().state
             return (search.isEmpty || project.name.localizedCaseInsensitiveContains(search)) &&
-                (!store.showOnlyHelp || health == .needsHelp || !project.activeIncidents.isEmpty || project.tasks.contains { $0.status == .blocked }) &&
+                (!store.showOnlyHelp || project.requiresAttention) &&
                 (filter == "All" || health.label == filter)
         }
         switch sort {
@@ -94,6 +94,7 @@ struct ProjectEditor: View {
     @State private var phase = "Planning"
     @State private var priority = 2
     @State private var requireAll = true
+    @State private var loaded = false
     private let icons = ["square.stack.3d.up", "building.2", "airplane.arrival", "carrot", "creditcard", "figure.strengthtraining.traditional", "sun.horizon", "square.grid.2x2", "terminal", "gearshape.2"]
     var body: some View {
         NavigationStack {
@@ -121,7 +122,7 @@ struct ProjectEditor: View {
                         }.disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
                 }
-                .onAppear { if let project { name = project.name; summary = project.summary; icon = project.icon; phase = project.phase; priority = project.priority; requireAll = project.requireAllChecks } }
+                .onAppear { guard !loaded else { return }; loaded = true; if let project { name = project.name; summary = project.summary; icon = project.icon; phase = project.phase; priority = project.priority; requireAll = project.requireAllChecks } }
         }
     }
 }

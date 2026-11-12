@@ -71,5 +71,17 @@ final class PersistenceTests: XCTestCase {
         XCTAssertEqual(project.tasks[0].title, "Must remain")
     }
 
+    @MainActor func testAttentionIncludesFailedWorkAndResolvedButStillDownServices() async throws {
+        let project = Project(name: "Attention", summary: "")
+        XCTAssertFalse(project.requiresAttention)
+        let task = WorkItem(title: "Failed build task"); task.status = .failed; project.tasks = [task]
+        XCTAssertTrue(project.requiresAttention)
+        task.status = .completed
+        let service = MonitoredService(name: "API")
+        service.evidence = .init(state: .down, explanation: "HTTP 503", observedAt: .now, source: "Test")
+        project.services = [service]
+        XCTAssertTrue(project.requiresAttention)
+    }
+
 }
 #endif
