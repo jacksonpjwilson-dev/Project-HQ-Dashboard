@@ -22,8 +22,20 @@ struct BackupDocument: FileDocument {
         }))
     }
     static func restore(_ backup: WorkspaceBackup, store: AppStore) -> Bool {
-        let existing = Set(store.projects.map(\.id)), incoming = Set(backup.projects.map(\.id))
-        guard existing.isDisjoint(with: incoming) else { store.errorMessage = "This backup contains projects already present on this device. Import is additive and never overwrites projects. Remove the corresponding project first if you intend to restore it."; return false }
+        func identifiers(_ project: Project) -> [UUID] {
+            var ids = [project.id]
+            ids.append(contentsOf: project.tasks.map(\.id)); ids.append(contentsOf: project.services.map(\.id))
+            ids.append(contentsOf: project.events.map(\.id)); ids.append(contentsOf: project.incidents.map(\.id))
+            ids.append(contentsOf: project.milestones.map(\.id)); return ids
+        }
+        let existing = Set(store.projects.flatMap(identifiers))
+        let incoming = Set(backup.projects.flatMap { p -> [UUID] in
+            var ids = [p.id]
+            ids.append(contentsOf: p.tasks.map(\.id)); ids.append(contentsOf: p.services.map(\.id))
+            ids.append(contentsOf: p.events.map(\.id)); ids.append(contentsOf: p.incidents.map(\.id))
+            ids.append(contentsOf: p.milestones.map(\.id)); return ids
+        })
+        guard existing.isDisjoint(with: incoming) else { store.errorMessage = "This backup contains projects or child records already present on this device. Import is additive and never overwrites projects. Remove the corresponding project first if you intend to restore it."; return false }
         return store.commit {
             try backup.validate()
             for p in backup.projects {

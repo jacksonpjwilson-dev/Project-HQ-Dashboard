@@ -19,4 +19,17 @@ Local results on 2026-11-11:
 | Original web app/assets/smoke-test CI vs existing base | PASS: unchanged |
 | Local Apple build and iOS Simulator tests | UNAVAILABLE: Linux host has no Xcode |
 
-The six SwiftData/integration tests are intentionally conditional and were not counted as executed in the Linux suite. They run through the Xcode app test target, alongside the same 53 shared tests. Interactive device and Simulator UI checks have not been performed. The Mac verification script exits 127 here with: `xcodebuild is unavailable. Install Xcode on macOS and select it with xcode-select.` Consequently no local Apple build or Simulator execution is claimed. Draft PR #1 starts the native workflow on a GitHub macOS runner; its result is recorded below when available.
+The seven SwiftData/integration tests are intentionally conditional and were not counted as executed in the Linux suite. They run through the Xcode app test target, alongside the same 53 shared tests. Interactive device and Simulator UI checks have not been performed. The Mac verification script exits 127 here with: `xcodebuild is unavailable. Install Xcode on macOS and select it with xcode-select.` Consequently no local Apple build or Simulator execution is claimed. Draft PR #1 starts the native workflow on a GitHub macOS runner; its result is recorded below when available.
+
+
+## First native validation
+
+[GitHub Actions run 43065555537](https://github.com/jacksonpjwilson-dev/Project-HQ-Dashboard/actions/runs/43065555537), commit `48a72e91104b667e21cb36a1338d853ff39924aa`, used Xcode **16.4 (16F6)** on macOS 15:
+
+- HeadQuarter iPhone Simulator build: **BUILD SUCCEEDED**.
+- HeadQuarterWidgets separate Simulator build: **BUILD SUCCEEDED**.
+- HeadQuarter Simulator XCTest: **59 tests, 0 failures; TEST SUCCEEDED** (53 shared tests plus six persistence/integration tests).
+- Portable Swift suite on macOS: **53 tests, 0 failures**.
+- Python relay suite on macOS: **13 tests, 0 failures**.
+
+The final revision adds a seventh persistence test for child-record import collisions and captures real light/dark Simulator screenshots. Those final-revision results are pending below. Warnings in the initial test build concern Xcode's pre-signed XCTest binaries being left unstripped; no source compilation errors occurred.

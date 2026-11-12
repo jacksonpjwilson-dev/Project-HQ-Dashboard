@@ -14,17 +14,15 @@ struct WorkspaceBackup: Codable, Sendable {
             try register(project.id)
             let tasks = Set(project.tasks.map(\.id)), milestones = Set(project.milestones.map(\.id))
             guard !DependencyEngine.hasCycle(Dictionary(project.tasks.map { ($0.id, $0.dependencyIDs) }, uniquingKeysWith: { a, _ in a })) else { throw BackupError.invalid("Cyclic task dependencies") }
+            let parentGraph = Dictionary(project.tasks.map { ($0.id, $0.parentID.map { [$0] } ?? []) }, uniquingKeysWith: { first, _ in first })
+            guard !DependencyEngine.hasCycle(parentGraph) else { throw BackupError.invalid("Cyclic subtasks") }
             for task in project.tasks {
                 try register(task.id)
                 guard !task.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, task.weight.isFinite, task.weight > 0,
                     (1...5).contains(task.priority), task.dependencyIDs.allSatisfy({ tasks.contains($0) && $0 != task.id }),
                     task.parentID.map({ tasks.contains($0) && $0 != task.id }) ?? true,
                     task.milestoneID.map({ milestones.contains($0) }) ?? true else { throw BackupError.invalid("Invalid task or missing dependency") }
-                var cursor = task.parentID; var seen: Set<UUID> = [task.id]
-                while let id = cursor {
-                    guard seen.insert(id).inserted else { throw BackupError.invalid("Cyclic subtasks") }
-                    cursor = project.tasks.first(where: { $0.id == id })?.parentID
-                }
+
             }
             for service in project.services {
                 try register(service.id)

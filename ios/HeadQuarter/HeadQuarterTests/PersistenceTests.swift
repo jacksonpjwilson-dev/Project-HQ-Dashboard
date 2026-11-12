@@ -60,5 +60,16 @@ final class PersistenceTests: XCTestCase {
         XCTAssertTrue(BackupService.restore(backup, store: other)); XCTAssertEqual(other.projects.first?.tasks.first?.title, "Important")
         XCTAssertFalse(BackupService.restore(backup, store: other)); XCTAssertEqual(other.projects.count, 1)
     }
+    @MainActor func testBackupChildIdentifierCollisionCannotOverwriteExistingTask() async throws {
+        let container = try Persistence.container(inMemory: true), context = container.mainContext
+        let project = Project(name: "Original", summary: ""); project.tasks = [WorkItem(title: "Must remain")]
+        context.insert(project); try context.save()
+        var backup = try BackupCodec.decode(BackupService.export([project]))
+        backup.projects[0].id = UUID(); backup.projects[0].tasks[0].title = "Attempted overwrite"
+        let store = AppStore(container: container, isDemo: true)
+        XCTAssertFalse(BackupService.restore(backup, store: store))
+        XCTAssertEqual(project.tasks[0].title, "Must remain")
+    }
+
 }
 #endif

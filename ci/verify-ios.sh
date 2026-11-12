@@ -21,3 +21,17 @@ fi
 xcodebuild -project "$HQ_PROJECT" -scheme HeadQuarter \
   -destination "platform=iOS Simulator,id=$HQ_SIMULATOR_UDID" -derivedDataPath "$HQ_RESULTS" \
   CODE_SIGNING_ALLOWED=NO test
+
+# Capture real Simulator output after the app and tests succeed. No mockups are generated.
+mkdir -p "$HQ_RESULTS/previews"
+xcrun simctl bootstatus "$HQ_SIMULATOR_UDID" -b
+HQ_APP_BUNDLE="$HQ_RESULTS/Build/Products/Debug-iphonesimulator/HeadQuarter.app"
+HQ_APP_IDENTIFIER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$HQ_APP_BUNDLE/Info.plist")"
+xcrun simctl install "$HQ_SIMULATOR_UDID" "$HQ_APP_BUNDLE"
+xcrun simctl ui "$HQ_SIMULATOR_UDID" appearance light
+xcrun simctl launch "$HQ_SIMULATOR_UDID" "$HQ_APP_IDENTIFIER"
+sleep 3
+xcrun simctl io "$HQ_SIMULATOR_UDID" screenshot "$HQ_RESULTS/previews/overview-light.png"
+xcrun simctl ui "$HQ_SIMULATOR_UDID" appearance dark
+sleep 2
+xcrun simctl io "$HQ_SIMULATOR_UDID" screenshot "$HQ_RESULTS/previews/overview-dark.png"

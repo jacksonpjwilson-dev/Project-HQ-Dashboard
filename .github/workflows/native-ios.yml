@@ -6,6 +6,9 @@ on:
       - 'ci/verify-ios.sh'
       - '.github/workflows/native-ios.yml'
   workflow_dispatch:
+concurrency:
+  group: native-ios-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -20,3 +23,10 @@ jobs:
         run: python3 -m unittest discover -s monitoring-relay/tests -v
       - name: Build iPhone app and widgets, then run iOS tests
         run: bash ci/verify-ios.sh
+      - name: Save actual Simulator previews
+        uses: actions/upload-artifact@v4
+        with:
+          name: head-quarter-simulator-previews
+          path: ios/HeadQuarter/DerivedData/previews/*.png
+          if-no-files-found: error
+          retention-days: 14
