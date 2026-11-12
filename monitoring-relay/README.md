@@ -1,26 +1,28 @@
-# Optional Head Quarter monitoring relay
+# Optional Head Quarter relay
 
-This is an independent, single-user service for HTTPS checks and authenticated structured events. It does not depend on continuous iPhone execution. Nothing is deployed, enabled, or connected to `jackson-ops` automatically. Python 3.11+ and the standard library are sufficient; there are no paid dependencies.
+A private single-user service for continuous HTTPS checks, signed structured events, workspace synchronization, and optional APNs delivery. The phone is not required to run continuously. No deployment, external account, `jackson-ops` workflow, or scheduled routine is activated by adding this code.
 
-## Setup
+The core uses Python 3.11+ standard library. Optional APNs HTTP/2/ES256 requires `pip install -r requirements-push.txt` in a private virtual environment. Test signing uses a generated test key and a mocked Apple transport; no test is sent to a real device.
 
-1. Add a relay service in the iPhone app, save it, then reopen service settings to copy its project and service UUIDs. Use those IDs in a private copy of `config.example.json` named `config.local.json`.
-2. Omit `endpoint` for a webhook-only service. For a scheduled check, supply an HTTPS endpoint, `intervalSeconds` (60–86400), `timeoutSeconds` (5–60), and optional `critical`. Targets are trusted administrator configuration; there is no remote endpoint-configuration API. An optional `tokenEnv` names an environment variable containing the target's bearer credential; never put it in the endpoint URL.
-3. Generate **distinct** read and write credentials of at least 32 characters. Supply `HQ_READ_TOKEN` and `HQ_WRITE_SECRET` from your host's secret manager/environment, never from committed files or command arguments. For local development, `python3 -c 'import secrets; print(secrets.token_urlsafe(32))'` can generate each value; do not share it in chat.
-4. Run `python3 relay.py --config config.local.json --database relay.sqlite3`. Default binding is `127.0.0.1:8787`. Give the process a private writable data directory. Use a process supervisor for restart/reboot persistence and back up the SQLite database using SQLite's backup API (it uses WAL).
-5. Place it behind an HTTPS reverse proxy. Restrict network access, apply request/connection limits, set a 64 KiB body limit, and forward only the required routes. The built-in server is a small reference integration layer, not an internet-facing TLS server. The iPhone refuses plaintext relay URLs.
-6. Configure the phone's service endpoint as `https://YOUR_HOST/v1/projects/PROJECT_UUID/services/SERVICE_UUID/evidence`; put `HQ_READ_TOKEN` in the secure token field. Configure evidence expiry longer than the external check interval plus expected scheduling/network delay.
+## Configure and run
 
-The scheduler checks configured targets sequentially and stores evidence even when no phone is connected. A verified expected 2xx response passes. HTTP 5xx on a critical target reports down; authentication needs help; transport errors and rate limits are unknown. Phone-side per-service criticality still determines aggregation. For many or slow targets, use a worker queue or your existing monitoring system instead of this small sequential scheduler. External deployment and process supervision are required for 24/7 service.
+1. Add actual service connections in the phone's projects. Settings → Ecosystem monitoring connections exports their exact UUIDs, HTTPS endpoints, HTTP/body/timestamp criteria, timeout, criticality, and evidence expiry. The export contains environment-variable names for credentials, never secret values.
+2. Save a private configuration as `config.local.json`, based on `config.example.json` or the phone export. Omit `endpoint` for webhook-only/Codex services. Scheduled targets require HTTPS without embedded credentials, interval 60–86400 seconds, timeout 5–60 seconds, expected 2xx status (default 200), optional `requiredBodyText`, optional dot-separated `timestampPath`, and `evidenceExpirySeconds` (60–604800).
+3. Set distinct secret-manager/environment values of at least 32 characters: `HQ_READ_TOKEN` for evidence reads, `HQ_WRITE_SECRET` for signed event ingestion, optional `HQ_SYNC_TOKEN` for the private workspace, and optional `HQ_DEVICE_TOKEN` for APNs device registration. Generate high-entropy ASCII values; never commit them or pass them in command arguments.
+4. If a target names `tokenEnv`, configure that environment variable with its bearer credential. Missing credentials return Needs Help, not a successful check. Set evidence expiry longer than the check interval plus expected scheduling/network delay.
+5. Run `python3 relay.py --config config.local.json --database /PRIVATE/DATA/relay.sqlite3`. Default binding is `127.0.0.1:8787`. Use private filesystem permissions, encrypted host storage, SQLite-aware backups, and a process supervisor for restart/reboot persistence.
+6. Put the service behind a TLS reverse proxy with connection/rate/body limits. The built-in server is a reference integration layer, not an internet-facing TLS server. The iPhone refuses plaintext URLs. Permit the monitoring routes plus any explicitly enabled sync/device routes.
 
-## Authenticated events
+Scheduled checks are sequential and intended for a small personal ecosystem; APNs delivery has a separate worker so provider failures do not block health checks. Scale to a worker queue or an established monitoring service for many slow targets. HTTPS status/body criteria must actually pass. A verified critical HTTP availability failure can be down; transport/rate-limit failures are unknown. For data feeds, a configured producer timestamp can be stale even if HTTP returns 200. JSON timestamps must be ISO 8601 or Unix epoch seconds; invalid/missing values require help, future or stale data is unknown. A healthy availability check alone does not prove fresh business data.
 
-Send `POST /v1/events` with `Content-Type: application/json`, a `Content-Length` no greater than 65536 bytes, and these headers:
+## Evidence and structured events
 
-- `X-HQ-Timestamp`: current Unix epoch seconds as ten decimal digits.
+`GET /v1/projects/PROJECT_UUID/services/SERVICE_UUID/evidence` requires `Authorization: Bearer HQ_READ_TOKEN`. It returns version 1, the service UUID, and original evidence (`state`, `explanation`, `observedAt`, `source`). It never re-timestamps old evidence. No configured evidence returns 404; the phone does not infer health from that absence.
+
+Send `POST /v1/events` with JSON, an exact Content-Length of at most 65536 bytes, and:
+
+- `X-HQ-Timestamp`: current Unix epoch seconds.
 - `X-HQ-Signature`: `sha256=` plus lowercase hex HMAC-SHA256 of the exact bytes `timestamp + "." + body`, keyed by `HQ_WRITE_SECRET`.
-
-Payload:
 
 ```json
 {
@@ -32,26 +34,34 @@ Payload:
   "evidence": {
     "state": "down",
     "explanation": "Health endpoint returned HTTP 503",
-    "observedAt": "2026-11-11T12:00:00Z",
-    "source": "My CI monitor"
+    "observedAt": "2026-11-12T12:00:00Z",
+    "source": "Configured CI monitor"
   }
 }
 ```
 
-Use real current timestamps and new UUIDs; the example is not a live event. Signatures expire after five minutes. Evidence can be at most one day old and at most sixty seconds in the future. The project/service pair must be configured. Duplicate event IDs return 200 with `duplicate: true` and do not create another event; accepted new events return 202. Older observed evidence cannot replace newer evidence. Events are retained for 30 days; latest evidence keeps its original timestamp so the phone can mark it stale. Secrets, headers, bodies, and endpoint URLs are not logged.
+Use actual configured IDs, new event UUIDs, and real current observation timestamps; the example is documentation, not a live report. The signature window is five minutes. Evidence may be at most one day old and sixty seconds in the future. The project/service pair must be allowlisted. New events return 202; duplicates return 200 without another stored event. Older evidence cannot replace newer evidence. Contradictory failure/recovery/approval states are rejected. Events retain 30 days of history; latest evidence keeps its original timestamp. Credentials, headers, bodies, and endpoint URLs are not logged.
 
-Supported kinds: taskStarted, taskCompleted, taskFailed, buildSucceeded, buildFailed, deploymentCompleted, integrationDisconnected, healthCheckFailed, serviceRecovered, approvalRequired, manualReport, milestoneCompleted. Evidence states: healthy, needsHelp, error, down, unknown. The caller explicitly supplies evidence; a task-start event is not inferred to mean the project's services are healthy. Contradictory failure/recovery/approval evidence is rejected.
+Supported kinds: taskStarted, taskCompleted, taskFailed, buildSucceeded, buildFailed, deploymentCompleted, integrationDisconnected, healthCheckFailed, serviceRecovered, approvalRequired, manualReport, milestoneCompleted. States: healthy, needsHelp, error, down, unknown. The sender must supply genuine evidence; a started/completed task is not automatically proof that the app's other services are healthy.
 
-Read latest evidence with `Authorization: Bearer HQ_READ_TOKEN`. Reads never change observation time. Unknown services, or configured services with no evidence, return 404. The iPhone provider validates response version, service ID, timestamp, and text limits before persisting a report. It currently pulls latest evidence; it does not import every server event or mutate development tasks.
+## Workspace synchronization
 
-## Push delivery boundary and future jackson-ops integration
+`GET /v1/workspace` and `PUT /v1/workspace` use **HQ_SYNC_TOKEN**, never the evidence-read token. PUT requires `If-Match: "REVISION"` and a validated native workspace backup, at most 20 MB. SQLite atomically advances the revision; stale writers receive 409 and cannot overwrite newer work. Missing revision receives 428. No workspace initially returns revision zero with null backup.
 
-APNs delivery is **not implemented**. An external monitor running continuously does not, by itself, deliver alerts to a suspended phone. To add it, implement authenticated device registration with Keychain-backed user identity, store device tokens encrypted at rest, associate them with the owner's projects, and send APNs provider requests from the server using an Apple team/key/topic configured in a secret manager. Persist an incident key and per-device delivery state to deduplicate failure/escalation/recovery pushes. Apply the user's quiet hours and severity preferences on the server. Add retry/backoff and APNs token-invalid handling; revoke registration on sign-out. Never ship an APNs provider signing key inside the app.
+The native app performs a three-way merge and in-place reconciliation with safety backups, while the relay enforces atomic compare-and-swap. See [remote synchronization](../docs/REMOTE_SYNCHRONIZATION.md) for conflict handling, first-device/new-device behavior, privacy, and supported limits. The service is single-user; add proper user authentication/tenant isolation before offering it to anyone else.
 
-ActivityKit push needs a separate registered per-activity push token and operation lifecycle. Remote completion must end the specific activity; do not create permanent health-monitor activities. These boundaries are documented rather than represented by a fake push sender.
+The [Codex adapter](../integrations/codex/README.md) can observe a real owning app-server client's notifications, post signed evidence, and update an exact configured remote task via this endpoint. It does not expose arbitrary Codex desktop/cloud sessions or approve commands. It preserves newer user edits and never automatically marks development work Completed.
 
-`jackson-ops` may later post signed health results or expose a compatible evidence adapter. Its existing workflow activation rules, credentials, scheduling, and notification channels must be assessed independently. No workflow, routine, secret, or bot in that repository is changed here.
+## Optional Apple push delivery
 
-## Tests
+Configure `APNS_TEAM_ID`, `APNS_KEY_ID`, owner-only `APNS_KEY_PATH`, and `APNS_TOPIC` with your Apple credentials, plus `HQ_DEVICE_TOKEN`. Only then can `POST /v1/devices` register a device or `DELETE /v1/devices/DEVICE_UUID` remove it, using the separate device-registration bearer token. The phone supplies the actual Apple token, sandbox/production environment, timezone, and notification preferences after explicit permission/configuration.
 
-From the repository root: `python3 -m unittest discover -s monitoring-relay/tests -v`. Tests cover real loopback HTTP ingestion/read flows, invalid signatures, request limits, timestamp validation, configured scope, durable deduplication, recovery, and out-of-order events. They do not deploy a server or call external targets.
+The provider signs ES256 JWTs with the server-held key, uses HTTP/2 to Apple's fixed provider endpoints, deduplicates per-device incident transitions, applies quiet hours and severity/category preferences, expires stale queued alerts, retries transient failures, and removes tokens rejected with HTTP 410. Unknown evidence never resolves an incident or creates a passing recovery. Repeated equivalent incidents do not create another delivery. Delivery state remains pending if no provider is configured; installation does not simulate success.
+
+**Actual APNs delivery is unverified until configured and tested on the owner's signed physical device.** Relay registration is not proof of Apple delivery. See [Apple setup](../docs/APPLE_CONFIGURATION.md) for exact entitlements, environment matching, container/account gates, and device test cases. ActivityKit push and silent/background workspace sync remain incomplete.
+
+## Verification
+
+From repository root: `python3 -m unittest discover -s monitoring-relay/tests -v`. Tests cover SQLite/CAS/restarts, real loopback HTTPS signed ingestion and Codex task transitions, wrong-thread and duplicate filtering, newer-human/Completed-task protection, producer-data freshness, push incident deduplication/quiet hours/stale expiry/token invalidation, and real ES256 signing against a mocked HTTP/2 transport. These are not live Apple or live authenticated Codex account tests.
+
+Existing `jackson-ops` routines, bot credentials, notification channels, and activation rules remain unchanged. Connect it only by configuring an explicit compatible endpoint/event adapter after independently checking its current deployment.

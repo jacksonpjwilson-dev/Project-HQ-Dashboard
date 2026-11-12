@@ -13,6 +13,7 @@ struct ServiceEditor: View {
     @State private var critical = true
     @State private var expectedHTTPStatus = 200
     @State private var requiredBodyText = ""
+    @State private var timestampPath = ""
     @State private var expiry = 60.0
     @State private var timeout = 15.0
     @State private var reportState = Health.unknown
@@ -44,6 +45,7 @@ struct ServiceEditor: View {
                         Stepper("Expected HTTP status: \(expectedHTTPStatus)", value: $expectedHTTPStatus, in: 200...299)
                         TextField("Required response text (optional)", text: $requiredBodyText).textInputAutocapitalization(.never).autocorrectionDisabled()
                     }
+                    if provider == "https" { TextField("JSON timestamp path for data feeds (optional)", text: $timestampPath).textInputAutocapitalization(.never).autocorrectionDisabled() }
                     Toggle("Critical service", isOn: $critical)
                     Stepper("Evidence expires after \(Int(expiry)) minutes", value: $expiry, in: 1...10080, step: 1)
                     Stepper("Request timeout: \(Int(timeout)) seconds", value: $timeout, in: 5...60, step: 5)
@@ -58,12 +60,16 @@ struct ServiceEditor: View {
                 }
                 if let existing {
                     Section("Latest evidence") {
-                        let health = HealthEngine.evaluate(existing.reading)
+                        TimelineView(.periodic(from: .now, by: 30)) { timeline in
+                        VStack(alignment: .leading, spacing: 8) {
+                        let health = HealthEngine.evaluate(existing.reading, now: timeline.date)
                         HealthBadge(health: health.state)
                         Text(health.explanation).font(.subheadline)
                         if let at = health.observedAt { Text("Observed: \(at.formatted())").font(.caption) }
                         if let checked = existing.lastCheckedAt { Text("Last check: \(checked.formatted())").font(.caption) }
-                        if let next = existing.nextAllowedCheckAt, next > .now { Text("Rate limited until \(next.formatted())").font(.caption).foregroundStyle(.orange) }
+                        if let next = existing.nextAllowedCheckAt, next > timeline.date { Text("Rate limited until \(next.formatted())").font(.caption).foregroundStyle(.orange) }
+                        }
+                        }
                     }
                 }
                 Section {
@@ -86,7 +92,7 @@ struct ServiceEditor: View {
             .onAppear {
                 guard !loaded else { return }; loaded = true
                 if let service = existing {
-                    name = service.name; provider = service.provider; endpoint = service.endpoint; critical = service.critical; expiry = service.expiry / 60; timeout = service.timeout; expectedHTTPStatus = service.expectedHTTPStatus; requiredBodyText = service.requiredBodyText
+                    name = service.name; provider = service.provider; endpoint = service.endpoint; critical = service.critical; expiry = service.expiry / 60; timeout = service.timeout; expectedHTTPStatus = service.expectedHTTPStatus; requiredBodyText = service.requiredBodyText; timestampPath = service.timestampPath
                     if !store.isDemo { do { hasToken = try CredentialVault.read(service.id) != nil } catch { store.errorMessage = error.localizedDescription } }
                 }
             }
@@ -111,12 +117,20 @@ struct ServiceEditor: View {
         let serviceID = service.id
         do {
             let oldToken = store.isDemo ? nil : try CredentialVault.read(service.id)
-            if !store.isDemo, removeToken || !token.isEmpty { try CredentialVault.set(removeToken ? "" : token, for: serviceID) }
+            if oldToken != nil, token.isEmpty, !removeToken, provider != "manual", let existing {
+                let oldURL = URL(string: existing.endpoint), newURL = URL(string: endpoint)
+                let sameOrigin = existing.provider == provider && (provider == "github" || (oldURL?.scheme == newURL?.scheme && oldURL?.host == newURL?.host && oldURL?.port == newURL?.port))
+                guard sameOrigin else { throw WorkspaceSyncError.configuration("Re-enter or remove the token when changing a service's provider or host.") }
+            }
+            if !store.isDemo {
+                if provider == "manual" { try CredentialVault.set("", for: serviceID) }
+                else if removeToken || !token.isEmpty { try CredentialVault.set(removeToken ? "" : token, for: serviceID) }
+            }
             let saved = store.commit {
                 // A changed connection must not inherit a passing result from the previous endpoint.
-                if service.provider != provider || service.endpoint != endpoint || service.expectedHTTPStatus != expectedHTTPStatus || service.requiredBodyText != requiredBodyText { service.evidence = nil; service.lastCheckedAt = nil; service.nextAllowedCheckAt = nil }
+                if service.provider != provider || service.endpoint != endpoint || service.expectedHTTPStatus != expectedHTTPStatus || service.requiredBodyText != requiredBodyText || service.timestampPath != timestampPath { service.evidence = nil; service.lastCheckedAt = nil; service.nextAllowedCheckAt = nil }
                 service.configurationRevision += 1
-                service.expectedHTTPStatus = expectedHTTPStatus; service.requiredBodyText = requiredBodyText
+                service.expectedHTTPStatus = expectedHTTPStatus; service.requiredBodyText = requiredBodyText; service.timestampPath = timestampPath
                 service.name = name; service.provider = provider; service.endpoint = endpoint
                 service.critical = critical; service.expiry = expiry * 60; service.timeout = timeout
                 if existing == nil { project.services.append(service) }

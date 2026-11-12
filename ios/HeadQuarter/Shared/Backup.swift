@@ -52,6 +52,7 @@ struct ServiceArchive: Codable, Sendable {
     var timeout: Double; var expiry: Double; var evidence: Evidence?
     var lastCheckedAt: Date? = nil; var nextAllowedCheckAt: Date? = nil
     var expectedHTTPStatus: Int = 200; var requiredBodyText: String = ""
+    var timestampPath: String? = nil
 }
 struct EventArchive: Codable, Sendable { var id: UUID; var kind: EventKind; var message: String; var source: String; var timestamp: Date; var serviceID: UUID? }
 struct IncidentArchive: Codable, Sendable {

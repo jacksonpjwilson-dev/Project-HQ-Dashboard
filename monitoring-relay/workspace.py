@@ -2,6 +2,7 @@
 import json
 import sqlite3
 import uuid
+from datetime import datetime, timezone
 from contextlib import closing
 
 MAX_WORKSPACE = 20 * 1024 * 1024
@@ -11,11 +12,22 @@ def validate_workspace(value):
     if not isinstance(value, dict) or value.get('version') != 1 or not isinstance(value.get('projects'), list): raise ValueError('Invalid workspace envelope')
     if len(value['projects']) > 10000: raise ValueError('Too many projects')
     identifiers = set()
+    def uid(value):
+        if not isinstance(value,str):raise ValueError('Identifier required')
+        return str(uuid.UUID(value))
+    def text(item,*keys):
+        if any(not isinstance(item.get(k),str) for k in keys):raise ValueError('Invalid text field')
+    def date(item,key,required=False):
+        value=item.get(key)
+        if value is None and not required:return
+        if not isinstance(value,str):raise ValueError('Invalid date')
+        parsed=datetime.fromisoformat(value.replace('Z','+00:00'))
+        if parsed.tzinfo is None:raise ValueError('Date requires timezone')
+    def priority(item):
+        if isinstance(item.get('priority'),bool) or not isinstance(item.get('priority'),int) or not 1<=item['priority']<=5:raise ValueError('Invalid priority')
     def register(item):
         if not isinstance(item, dict): raise ValueError('Invalid record')
-        key_value = item.get('id')
-        if not isinstance(key_value,str):raise ValueError('Identifier required')
-        key = str(uuid.UUID(key_value))
+        key = uid(item.get('id'))
         if key in identifiers: raise ValueError('Duplicate identifiers')
         identifiers.add(key)
     def cyclic(graph):
@@ -36,15 +48,38 @@ def validate_workspace(value):
         for field in ['tasks','services','events','incidents','milestones']:
             if not isinstance(project.get(field),list):raise ValueError('Missing collection')
             for record in project[field]:register(record)
-        tasks={t['id']:t for t in project['tasks']}; milestones={m['id'] for m in project['milestones']}
+        text(project,'summary','icon','phase');priority(project);date(project,'createdAt',True)
+        if not isinstance(project.get('requireAllChecks'),bool) or not isinstance(project.get('order'),int):raise ValueError('Invalid project settings')
+        tasks={uid(t['id']):t for t in project['tasks']}; milestones={uid(m['id']) for m in project['milestones']}
         for task in tasks.values():
             if task.get('status') not in statuses or not isinstance(task.get('title'),str) or not task['title'].strip():raise ValueError('Invalid task')
+            text(task,'notes','assignee','blocker');priority(task);date(task,'createdAt',True)
+            for key in ['plannedAt','completedAt','modifiedAt']:date(task,key)
             weight=task.get('weight')
             if isinstance(weight,bool) or not isinstance(weight,(int,float)) or not 0<weight<float('inf'):raise ValueError('Invalid weight')
-            if not isinstance(task.get('dependencyIDs'),list) or any(i not in tasks for i in task['dependencyIDs']):raise ValueError('Invalid dependency')
-            if task.get('parentID') is not None and task['parentID'] not in tasks:raise ValueError('Invalid parent')
-            if task.get('milestoneID') is not None and task['milestoneID'] not in milestones:raise ValueError('Invalid milestone')
-        if cyclic({k:v['dependencyIDs'] for k,v in tasks.items()}) or cyclic({k:[v['parentID']] if v.get('parentID') else [] for k,v in tasks.items()}):raise ValueError('Cyclic tasks')
+            if not isinstance(task.get('dependencyIDs'),list) or any(uid(i) not in tasks for i in task['dependencyIDs']):raise ValueError('Invalid dependency')
+            if task.get('parentID') is not None and uid(task['parentID']) not in tasks:raise ValueError('Invalid parent')
+            if task.get('milestoneID') is not None and uid(task['milestoneID']) not in milestones:raise ValueError('Invalid milestone')
+        if cyclic({k:[uid(i) for i in v['dependencyIDs']] for k,v in tasks.items()}) or cyclic({k:[uid(v['parentID'])] if v.get('parentID') else [] for k,v in tasks.items()}):raise ValueError('Cyclic tasks')
+        for service in project['services']:
+            text(service,'name','provider','endpoint')
+            if service['provider'] not in {'manual','https','github','relay'} or not isinstance(service.get('critical'),bool):raise ValueError('Invalid service')
+            if not isinstance(service.get('timeout'),(int,float)) or not 5<=service['timeout']<=60:raise ValueError('Invalid timeout')
+            if not isinstance(service.get('expiry'),(int,float)) or not 60<=service['expiry']<=604800:raise ValueError('Invalid expiry')
+            evidence=service.get('evidence')
+            if evidence is not None:
+                text(evidence,'explanation','source');date(evidence,'observedAt',True)
+                if evidence.get('state') not in {'healthy','needsHelp','error','down','unknown'}:raise ValueError('Invalid evidence')
+        for event in project['events']:
+            text(event,'kind','message','source');date(event,'timestamp',True)
+            if event.get('serviceID') is not None:uid(event['serviceID'])
+        for incident in project['incidents']:
+            uid(incident.get('serviceID'));text(incident,'title')
+            if incident.get('state') not in {'open','acknowledged','resolved'} or incident.get('health') not in {'healthy','needsHelp','error','down','unknown'}:raise ValueError('Invalid incident')
+            date(incident,'openedAt',True);date(incident,'updatedAt',True)
+            for key in ['resolvedAt','lastNotifiedAt']:date(incident,key)
+        for milestone in project['milestones']:
+            text(milestone,'title');date(milestone,'dueAt');date(milestone,'completedAt')
     # Reject non-finite values even when the Python JSON decoder accepted them.
     json.dumps(value,allow_nan=False)
 

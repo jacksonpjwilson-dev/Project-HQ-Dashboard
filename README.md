@@ -1,119 +1,99 @@
 # Project HQ / Head Quarter
 
-The existing Project HQ web app remains at the repository root. Head Quarter adds a **native SwiftUI iPhone app** alongside it in `ios/HeadQuarter`, with SwiftData persistence, WidgetKit, ActivityKit, App Intents, and an optional independent monitoring relay. There is no web view in the iPhone app.
+Head Quarter is a native **iOS 17+ SwiftUI application** added inside the existing Project HQ repository. The original `index.html`, web manifest, icon, legacy JSON format, smoke test, and web CI are preserved unchanged. The native app uses SwiftData, WidgetKit, ActivityKit, App Intents, CloudKit, and WatchConnectivity. No web view or paid runtime dependency is used.
 
-## Existing foundation and preservation
+Development continues in [Draft PR #1](https://github.com/jacksonpjwilson-dev/Project-HQ-Dashboard/pull/1) on `codex/native-head-quarter`. Existing base: `659b57aecd80a02c3b61bc38632c663079d21325`. Initial repository discovery found a functional web app and no Swift/Xcode foundation or AGENTS.md. The owner selected this repository; `jackson-ops` remains unchanged and is not connected automatically.
 
-Repository discovery found `jacksonpjwilson-dev/Project-HQ-Dashboard` at `659b57aecd80a02c3b61bc38632c663079d21325`. It contained `index.html`, `manifest.webmanifest`, `icon.svg`, static smoke tests, and CI. There were no Swift files, Xcode projects, package dependencies, or AGENTS.md files on its only branch, `main`. Existing features were editable projects and tasks, manually entered percentages, device-local browser storage, and JSON import/export. The original nine web projects include Games, Jarvis, and Automation Infrastructure; none were removed or rewritten.
+## Run in Xcode
 
-The owner selected this repository as Head Quarter's home. The separate `jackson-ops` repository remains unchanged and is a future monitoring integration, not a dependency. Its documentation alone does not establish that its services are currently configured or healthy.
+1. Open `ios/HeadQuarter/HeadQuarter.xcodeproj` on a Mac with Xcode 16.4 or newer. Select **HeadQuarter** and an iPhone Simulator. Deployment target remains iOS 17.
+2. For devices, select your signing team on the app, widgets, and Watch targets; replace the sample `com.headquarter.app` identifiers with owned identifiers. Update the Watch companion bundle reference to match.
+3. Register an App Group and replace `group.com.headquarter.app` in the app/widget entitlements and `Shared/Domain.swift`. Snapshots, not secrets, use this group.
+4. The first launch registers Logbook, Daily Briefing, Stack, Crew, YKF Arrivals, Pantry, and Head Quarter. They begin with no assumed progress and **Unknown / Not Configured** health. Add actual tasks and services from Projects.
+5. Optional remote sync, Codex, iCloud, and push require explicit setup. Default `HQCloudKitEnabled` and `HQPushEnabled` are false. They do not represent successful connections simply because code is installed.
 
-All native additions are on `codex/native-head-quarter`. Existing web source, assets, data format, and CI are preserved. The native app accepts the web app's exported `projectHQv1` JSON and retains imported manual percentages as history instead of treating them as calculated completion. Browser localStorage is not automatically accessible from a native app.
+The checked-in Xcode project opens directly. Regenerate after adding source files with `python3 ios/HeadQuarter/tools/generate_project.py`. The generator uses only Python's standard library. Keep owned signing settings in your local build configuration when regenerating the sample project.
 
-## Run the iPhone app
+## Implemented functionality
 
-1. On a Mac, install Xcode 16.2 or newer and an iOS Simulator runtime. The deployment target remains **iOS 17.0**.
-2. Open `ios/HeadQuarter/HeadQuarter.xcodeproj`. Choose the **HeadQuarter** scheme and an iPhone Simulator; Run.
-3. For a physical iPhone, set your signing team on **both** the app and widget targets. Change the sample bundle IDs `com.headquarter.app` and `com.headquarter.app.widgets` to identifiers you own.
-4. Register an App Group you own. Replace `group.com.headquarter.app` in both entitlements and `Shared/Domain.swift`; enable that group for both targets. The group shares widget snapshots, not credentials.
-5. The first launch registers Logbook, Daily Briefing, Stack, Crew, YKF Arrivals, Pantry, and Head Quarter. They begin with zero tracked completion and **Unknown / Not Configured** health. No external connection or progress is invented.
-6. Create tasks and services from Projects. Configure a manual report, HTTPS endpoint, GitHub Actions repository, or monitoring relay. Add notification permission only when you want alerts. Temporary demonstration data is available in Settings and is isolated from the real workspace, exports, integrations, and widget snapshots.
-
-A missing or unreadable local database presents an error and retry; the app never deletes it to recover. Deleting all projects intentionally does not reseed them on the next launch. Local writes explicitly save and roll back on failure. No CloudKit container or paid dependency is required.
-
-## Implemented behavior
-
-| Area | Implementation |
+| Area | Behavior |
 | --- | --- |
-| Persistent workspace | SwiftData models for projects, tasks, milestones, services, activity history, incidents, and a one-time seeding marker. Offline editing, cascade deletion, error presentation, explicit saves. |
-| Overview | Project count, task-weighted overall completion, healthy/help/error/down service counts, active/completed tasks, unknown coverage, and project cards. Progress and operational health are independent. |
-| Projects | Create/edit/delete, descriptions/icons/phases/priorities, dashboard ordering, search, health filtering, sorting by priority/health/completion. Detail screens show work, milestones, evidence, incidents, build/deployment history, errors, and timeline. |
-| Work | Seven task states; editable priority, positive work weight, assignee, blocker, planned/actual completion dates; subtasks, dependency-cycle validation, completion prerequisites; Kanban drag-and-drop and list views. Completion history is retained as events when a task is reopened. |
-| Milestones | Create with optional planned completion; assign tasks; completion derives from assigned work and reverses when work is reopened. |
-| Monitoring | Provider protocol; functional manual reporting with event types; HTTPS status/body criteria; GitHub Actions latest workflow status; authenticated relay evidence. Configurable request timeout, evidence expiry, criticality, and project coverage rules. |
-| Incidents | Persisted open → acknowledged → resolved transitions; repeated evidence is deduplicated; fresh passing evidence resolves an existing incident; renewed failure after resolution can create a new incident. Resolving an incident does not override service health. |
-| Alerts | UserNotifications permission workflow, severity/category preferences, quiet hours in device local time, incident deduplication, outage/error/approval/recovery/milestone/task-failure alerts. Notification actions acknowledge/resolve incidents; tapping opens the project. |
-| Widgets | Small/medium/large Home Screen layouts; inline/circular/rectangular Lock Screen widgets; project selection, progress, alerts, deep links. App Group snapshots and timeline entries expire old evidence without waiting for the phone app. OS refresh budgets still apply. |
-| Live Activities | Start from an active task's editor or context menu; one bounded operation at a time, with a one-hour deadline; local updates and completion/failure/deletion/end actions; Lock Screen and compact/minimal/expanded Dynamic Island layouts. |
-| Shortcuts | Overall status, projects requiring help, active tasks, open project, create task, recent errors. Native App Intents and App Shortcuts; no private Codex or G.I.L.E.S. API is assumed. Navigation uses an iOS 17-compatible request rather than iOS 18-only OpenURLIntent. |
-| Backups | Native JSON export/import including relationships and monitoring history; validated legacy web imports. Imports are additive, refuse colliding project IDs, and never overwrite an existing project. Legacy projects get new IDs; review duplicates before importing. Tokens are excluded. |
-| Appearance | Apple-native tabs/navigation/forms, light/dark/system modes, Dynamic Type, semantic labels and icons as well as color, accessible error banners. |
-| Optional relay | Python standard-library service with SQLite history, periodic HTTPS checks, authenticated reads, HMAC event ingestion, replay-window checks, event-ID deduplication, and out-of-order protection. No server is deployed automatically. |
+| Local workspace | SwiftData projects, tasks, milestones, services, events, incidents, repository cache, and one-time seeding. Offline editing, explicit saves, rollback errors, and cascade deletion. Empty workspaces stay empty after intentional deletion. |
+| Dashboard and work | Seven seed projects; progress calculated from positive task weights; health separate from development progress. Project CRUD, sorting/filtering/order, editable priorities/phases, Kanban/list tasks, assignees, blockers, planned/actual dates, dependencies/subtasks with cycle validation, milestones and history. |
+| Evidence-based monitoring | Manual reports, HTTPS status/body criteria, optional producer JSON timestamps, GitHub Actions, authenticated relay evidence. Criticality, timeout, expiry, project coverage rules, rate-limit cooldowns, stale/future-data detection. HTTP 200 with stale feed data does not become green. |
+| GitHub activity | Actual latest-30 commits and pull requests plus latest workflow; original dates, draft/open/closed/merged states, cached fetch/error state, source links, stale labels. No inferred task completion or production uptime from commits/PRs. |
+| Codex bridge | Supported app-server notification observer/proxy and legacy CLI completion hook; exact thread/project/service/task mapping, durable outbox, HMAC events, idempotent remote task updates, approval/failure handling, newer-human-edit protection. A finished turn maps to **Testing**, never automatic verified completion. |
+| Remote project/task sync | Authenticated HTTPS workspace endpoint; revision compare-and-swap, durable SQLite state, three-way field/object merge, independent additions/deletions, visible conflicts, explicit resolution, safety backups, in-place SwiftData reconciliation, opt-in foreground sync. Credentials stay device-local. |
+| CloudKit transport | Optional private CKAsset workspace backend using the same merge engine and conditional saves. Explicit Apple configuration and current-account authorization; account-specific sync bases. No direct migration of the existing SwiftData graph to CloudKit is performed. |
+| Incidents/alerts | Open → acknowledged → resolved, repeated-incident deduplication, evidence-backed recovery, local notification preferences/quiet hours/severity/category controls and actions. Optional remote device registration and APNs relay with per-device deduplication, stale-push expiry, quiet hours, retries, and invalid-token removal. |
+| Widgets/Live Activities | Home Screen small/medium/large and Lock Screen accessories, project selection/deep links, component-level expiry timelines; bounded local task Live Activities and Dynamic Island layouts with lifecycle/end handling. OS refresh/background limits apply. |
+| Apple Watch | Real watchOS 10+ companion target; paired-phone snapshots, system/project health and progress, outstanding tasks/incidents, queued acknowledgement. Local expiry recomputation, payload-size budget, explicit limited-snapshot labels, and unknown status when evidence cannot fit. |
+| Backups/settings | Native JSON and legacy web imports, ID-collision rejection, relationship/history preservation, appearance/order/integration/alert/sync settings, temporary isolated demonstration workspace. Tokens are never exported. |
+| Ecosystem setup | Actual configured services listed per project; export of real relay IDs/endpoints/criteria/timing. No guessed endpoints or automatic claims that the other apps are connected. |
 
-The final iPhone app and widget extension compile on Xcode 16.4. The initial 59-test Simulator suite passed; the expanded 65-test runtime rerun is pending after a Simulator startup stall. This is not a claim of App Store readiness: interactive acceptance, notification delivery, widget rendering, and Live Activity behavior still need device validation. See [validation](docs/VALIDATION.md) for exact results and tested revisions.
+These are source implementations with distinct verification levels, not a claim of App Store readiness. [Validation results](docs/VALIDATION.md) distinguish actual builds/tests from Apple-account or physical-device gates.
 
-### Health rules
+## Integration setup and limits
 
-- **Green:** fresh, passing evidence for all configured checks by default.
-- **Yellow:** explicit approval, configuration, or authentication intervention.
-- **Orange:** a failed task/build/integration or noncritical service error.
-- **Red:** a critical monitor has observed a failing availability response. A failed network connection on the phone does not establish that a remote service is down.
-- **Grey:** no evidence, stale evidence, incomplete evidence, invalid future timestamps, or unavailable monitoring connectivity.
+- [Remote synchronization, GitHub, and ecosystem checks](docs/REMOTE_SYNCHRONIZATION.md): API authentication, merge/conflict behavior, real connection configuration, data freshness, and secret handling.
+- [Supported Codex integration](integrations/codex/README.md): controlling-client setup, official protocol references, authentication, exact supported events, outbox recovery, and unsupported desktop/cloud-session access.
+- [Apple configuration](docs/APPLE_CONFIGURATION.md): signing, CloudKit schema/container/account authorization, Watch pairing, APNs provider/device registration and production/sandbox setup.
+- [Relay deployment](monitoring-relay/README.md): independent continuous checks, signed events, TLS/private storage, service supervision, optional APNs dependencies, and routes.
 
-Confirmed failures take precedence over unknown coverage. Otherwise, any missing/stale check prevents green. A project can explicitly allow partial coverage; its explanation states that choice. Noncritical `Down` readings become `Error`. GitHub workflow evidence describes that workflow only, not the availability of the app built by it. A running build remains unknown until it concludes; an explicit approval wait is yellow. Successful old builds retain their original timestamp and expire. The app records last monitoring contact separately from evidence observation time.
+Public GitHub repositories can be fetched without a token within public API limits. Private repositories require user-supplied fine-grained Metadata/Contents/Pull requests/Actions **read** access. The chat's GitHub connection is not embedded in the phone app. The Codex adapter uses the owning CLI client's supported authentication; no OpenAI token is copied to the app or relay. There is no general supported API here to monitor arbitrary existing Codex desktop/cloud sessions.
 
-Every task, including subtasks, contributes its own positive configured weight. Overall progress uses all tracked work rather than averaging project percentages; projects with no tasks add no assumed progress.
+Remote workspace and APNs routes require distinct private owner credentials. Deploy the relay behind HTTPS and protect its database/storage. The Python core uses the standard library; optional APNs sends require the free packages in `monitoring-relay/requirements-push.txt`. No backend is deployed by this change. Continuous monitoring runs outside the phone, and foreground sync is not a promise of reliable unrestricted background execution.
 
-### Live integrations and required configuration
+## Data preservation
 
-- **Manual:** works immediately and offline. Enter actual observed evidence, its source, health, and event kind. Reports expire.
-- **HTTPS:** enter an HTTPS endpoint, expected 2xx status, optional required response substring, timeout, and expiry. Tokens use device-only Keychain storage. Redirects are refused to prevent credentials being forwarded to another host.
-- **GitHub Actions:** enter `owner/repository`; public repositories can work without a token. Private repositories need a fine-grained token with repository metadata and Actions read permissions. The GitHub connection used during development is **not** embedded in or automatically granted to the app. Authentication failures require help; rate-limit headers establish a persisted cooldown.
-- **Relay:** configure the external service described in [monitoring-relay/README.md](monitoring-relay/README.md), copy the project/service IDs from service settings, and supply its HTTPS evidence URL and read token in Keychain. Local relay development uses loopback HTTP; the iPhone provider intentionally requires an HTTPS reverse proxy.
-- **Continuous operation and push:** foreground phone checks are configurable from 1–60 minutes. Reliable continuous checks must run externally. This relay can keep checking while the phone is suspended, but **APNs push delivery is not implemented**. Suspended phones receive no new monitoring notifications from this implementation.
-- **CloudKit:** disabled. Enabling it needs a deliberate SwiftData relationship/uniqueness migration and CloudKit-compatible schema, container entitlements, and sync UI. Checking a box alone would not make this schema sync safely.
+The web app still reads `projectHQv1` and retains its original nine starter projects, including Games, Jarvis, and Automation Infrastructure. Native import accepts its JSON export. Previous manual percentages are retained as history; weighted completion comes from imported tasks, with no invented historical completion dates.
 
-## Project structure
+Native imports are additive and reject project or child-record ID collisions. Synchronization is a separate, explicit workflow: it merges by UUID, preserves conflicts, detects local edits during network requests, and writes a protected local safety backup before reconciliation. Same-named projects on different devices are not silently merged. A database-open failure shows retry/error rather than deleting stored data. Preserve/export a backup and validate upgrades on signed devices before distributing to real users.
+
+## Structure
 
 ```text
-index.html, icon.svg, manifest.webmanifest  Existing web app, unchanged
-ci/smoke.mjs                               Existing web smoke test, unchanged
-ci/verify-ios.sh                           Mac builds + iOS unit tests
-.github/workflows/native-ios.yml           Native validation workflow
-ios/
-  HeadQuarter/
-    HeadQuarter.xcodeproj/                 App, widget, unit-test targets + shared schemes
-    HeadQuarter/Models/                    SwiftData model graph and container
-    HeadQuarter/Services/                  Store, Keychain, alerts, backups, Live Activities
-    HeadQuarter/Views/                     Overview, Projects, Tasks, Activity, Settings
-    HeadQuarter/Intents/                   Siri / Spotlight / Shortcuts actions
-    Shared/                               Domain rules, monitoring providers, backup codec, activity attributes
-    HeadQuarterWidgets/                   WidgetKit and Dynamic Island layouts
-    HeadQuarterTests/                     Shared core + Apple-only persistence/integration tests
-    Package.swift                         Portable core tests using the same source files
-    tools/generate_project.py              Deterministic Xcode project generator; stdlib only
-monitoring-relay/                          Optional independent monitor and authenticated event relay
+index.html, manifest.webmanifest, icon.svg   Original web app, unchanged
+ci/smoke.mjs                                Original smoke test, unchanged
+ci/verify-ios.sh                            Watch/iPhone/widgets builds + Simulator tests
+ci/capture-ios-previews.sh                  Optional bounded actual-app screenshots
+ios/HeadQuarter/
+  HeadQuarter.xcodeproj/                    Shared iPhone/widget/Watch/test schemes
+  HeadQuarter/Models/                      SwiftData graph and shared local container
+  HeadQuarter/Services/                    Store, GitHub cache, sync, CloudKit, Watch, push, alerts, backups
+  HeadQuarter/Views/                       Native app navigation and settings
+  HeadQuarter/Intents/                     Siri/Shortcuts actions
+  HeadQuarterWidgets/                     WidgetKit and Live Activity layouts
+  HeadQuarterWatch/                       watchOS companion
+  Shared/                                 Domain, providers, merge/backup codecs, Watch payload
+  HeadQuarterTests/                        Portable and Apple-only tests
+  Package.swift                           Same production core sources, no Swift package dependencies
+  tools/generate_project.py               Reproducible Xcode project generator
+monitoring-relay/                          Optional private monitoring/sync/APNs service
+integrations/codex/                        Supported Codex protocol adapter and configuration guide
 ```
 
-## Verification
+## Automated checks
 
 ```sh
-# Existing web application and all JSON assets
 node ci/smoke.mjs
-
-# Exact shared Swift implementations; no package dependencies
 swift test --package-path ios/HeadQuarter
-
-# Relay auth, storage, replay protection, HTTP lifecycle
 python3 -m unittest discover -s monitoring-relay/tests -v
-
-# On a Mac: app build, separate widget build, then Simulator unit tests
+# Explicit live public GitHub read (three API calls):
+HQ_RUN_GITHUB_LIVE=1 swift test --package-path ios/HeadQuarter --filter GitHubRepositoryTests.testLivePublicRepositoryWhenExplicitlyEnabled
+# On a Mac with iOS/watchOS SDKs:
 bash ci/verify-ios.sh
-
-# Optional: capture actual app previews on the booted Simulator after tests
 bash ci/capture-ios-previews.sh
 ```
 
-`HQ_SIMULATOR_UDID` optionally selects a specific simulator for the Mac script. `HQ_RESULTS_DIR` selects its DerivedData directory. The script otherwise chooses an available iPhone. It never requires device signing for Simulator checks. The checked-in Xcode project opens directly; regenerate it after adding sources with `python3 ios/HeadQuarter/tools/generate_project.py`.
+APNs signing tests use optional installed dependencies and a mocked HTTP/2 Apple transport; they never send a test fixture to a real device. Codex wire tests use real loopback TLS/HMAC/CAS against the relay with explicitly labeled notification fixtures; they are not an authenticated live Codex session. Set `HQ_SIMULATOR_UDID` to select a device and `HQ_RESULTS_DIR` for DerivedData. CI explicitly boots Simulator, disables parallel test clones, and bounds boot/test/preview timeouts. Watch builds do not prove physical pairing.
 
-For device checks: create/edit/relaunch a project and task; verify weighted progress; enter evidence and wait past expiry; test dependency blocking; export/import; acknowledge/recover an incident; select widget projects and open their links; run each Shortcut; start/update/end a Live Activity on an eligible iPhone. Test notification permission, quiet hours, VoiceOver, large text, light/dark appearance, and offline edits.
+## Remaining release gates
 
-## Remaining work and release gates
-
-- Complete interactive Simulator/device acceptance and distribution validation. Native compilation and unit/integration tests run in macOS CI. The final 65-test runtime rerun is pending. Optional previews capture actual Simulator output; no final-revision screenshots were produced during this session.
-- Apple Watch app/complications are not included because this Linux environment does not support watchOS development or verification.
-- CloudKit sync, APNs notification delivery, ActivityKit push updates, and distribution signing/provisioning are not implemented/configured.
-- No supported Codex-session integration, remote task synchronization, GitHub commit-history UI, or automatic deployment-to-task matching is implemented. The provider/event boundaries support future additions; current GitHub integration is read-only workflow monitoring.
-- Relay ingest accepts the requested structured event kinds, but the iPhone currently pulls latest service evidence, not a full event-stream history. Manual event entry and GitHub workflow checks populate local build/deployment history. Remote tasks are not silently mutated.
-- No always-running background phone process is attempted. A stale local Live Activity is explicitly labeled expired; if iOS suspends the app, local ending may wait until the app resumes or the system removes it. Use a properly configured push backend for authoritative remote operation endings.
-- Backups are user-selected plain JSON and can contain private project names, notes, and endpoint URLs. Store them appropriately and use the Keychain field for secrets. Settings and tokens are not part of the backup. This is a single-device local schema with no historical migrations yet; add versioned migrations before a future schema release.
+- Configure and verify an actual Codex client/thread → deployed relay → signed iPhone connection. Unsupported arbitrary desktop/cloud-session monitoring remains unavailable.
+- Configure private relay credentials, endpoints, supervision, and storage; verify signed multi-device remote sync against that deployment. Loopback and in-memory tests are not a production deployment.
+- Verify CloudKit two-device/account-change/offline/conflict behavior with the owner's provisioned container and iCloud account.
+- Verify Watch pairing, delivery/reconnects, queued acknowledgements, and accessibility on signed paired devices. Watch complications/Smart Stack widgets are not implemented.
+- Verify APNs registration and actual Apple delivery using the owner's team/key/topic and a physical device. ActivityKit push updates and silent/background workspace sync are not implemented.
+- Validate Siri/Shortcuts/Spotlight and notifications/widget/Live Activity UI on devices. Xcode 16.4 emitted a nonfatal `Unable to parse extract.actionsdata` training diagnostic in the first expanded run while also generating all six app shortcut phrase archives; this is recorded for acceptance rather than hidden.
+- GitHub OAuth/write operations, issue-to-task or PR-to-task automation, direct GitHub webhook verification, CloudKit sharing/subscriptions, record-level large-workspace sync, and multi-tenant relay accounts remain incomplete.

@@ -15,7 +15,7 @@ struct BackupDocument: FileDocument {
         try BackupCodec.encode(.init(exportedAt: .now, projects: projects.map { p in
             ProjectArchive(id: p.id, name: p.name, summary: p.summary, icon: p.icon, phase: p.phase, priority: p.priority, order: p.order, requireAllChecks: p.requireAllChecks, createdAt: p.createdAt,
                 tasks: p.tasks.map { t in TaskArchive(id: t.id, title: t.title, notes: t.notes, status: t.status, priority: t.priority, weight: t.weight, assignee: t.assignee, blocker: t.blocker, createdAt: t.createdAt, plannedAt: t.plannedAt, completedAt: t.completedAt, parentID: t.parentID, dependencyIDs: t.dependencyIDs, milestoneID: t.milestoneID, modifiedAt: t.modifiedAt) },
-                services: p.services.map { s in ServiceArchive(id: s.id, name: s.name, provider: s.provider, endpoint: s.endpoint, critical: s.critical, timeout: s.timeout, expiry: s.expiry, evidence: s.evidence, lastCheckedAt: s.lastCheckedAt, nextAllowedCheckAt: s.nextAllowedCheckAt, expectedHTTPStatus: s.expectedHTTPStatus, requiredBodyText: s.requiredBodyText) },
+                services: p.services.map { s in ServiceArchive(id: s.id, name: s.name, provider: s.provider, endpoint: s.endpoint, critical: s.critical, timeout: s.timeout, expiry: s.expiry, evidence: s.evidence, lastCheckedAt: s.lastCheckedAt, nextAllowedCheckAt: s.nextAllowedCheckAt, expectedHTTPStatus: s.expectedHTTPStatus, requiredBodyText: s.requiredBodyText, timestampPath: s.timestampPath) },
                 events: p.events.map { e in EventArchive(id: e.id, kind: e.kind, message: e.message, source: e.source, timestamp: e.timestamp, serviceID: e.serviceID) },
                 incidents: p.incidents.map { i in IncidentArchive(id: i.id, serviceID: i.serviceID, title: i.title, health: i.health, state: i.state, openedAt: i.openedAt, updatedAt: i.updatedAt, resolvedAt: i.resolvedAt, lastNotifiedAt: i.lastNotifiedAt) },
                 milestones: p.milestones.map { m in MilestoneArchive(id: m.id, title: m.title, dueAt: m.dueAt, completedAt: m.completedAt) })
@@ -49,7 +49,7 @@ struct BackupDocument: FileDocument {
                 }
                 project.services = p.services.map { s in
                     let service = MonitoredService(name: s.name, provider: s.provider, endpoint: s.endpoint, expiry: s.expiry)
-                    service.id = s.id; service.critical = s.critical; service.timeout = s.timeout; service.evidence = s.evidence; service.lastCheckedAt = s.lastCheckedAt; service.nextAllowedCheckAt = s.nextAllowedCheckAt; service.expectedHTTPStatus = s.expectedHTTPStatus; service.requiredBodyText = s.requiredBodyText; return service
+                    service.id = s.id; service.critical = s.critical; service.timeout = s.timeout; service.evidence = s.evidence; service.lastCheckedAt = s.lastCheckedAt; service.nextAllowedCheckAt = s.nextAllowedCheckAt; service.expectedHTTPStatus = s.expectedHTTPStatus; service.requiredBodyText = s.requiredBodyText; service.timestampPath = s.timestampPath ?? ""; return service
                 }
                 project.events = p.events.map { e in
                     let event = ActivityEvent(kind: e.kind, message: e.message, source: e.source, serviceID: e.serviceID); event.id = e.id; event.timestamp = e.timestamp; return event

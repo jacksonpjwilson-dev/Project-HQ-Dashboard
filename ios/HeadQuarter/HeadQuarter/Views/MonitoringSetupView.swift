@@ -5,6 +5,7 @@ struct MonitoringSetupView: View {
     @State private var exporting = false
     @State private var document = BackupDocument()
     var body: some View {
+        TimelineView(.periodic(from: .now, by: 30)) { timeline in
         List {
             Section {
                 Text("Connect each project to evidence you control: an HTTPS health endpoint, GitHub repository, or authenticated relay/Codex observer. Unconfigured projects stay unknown. Repository activity never substitutes for an application's uptime check.").font(.subheadline)
@@ -17,12 +18,13 @@ struct MonitoringSetupView: View {
                     ForEach(project.services) { service in VStack(alignment: .leading, spacing: 5) {
                         Text(service.name).font(.headline)
                         Text("\(service.provider) · expires after \(Int(service.expiry)) seconds").font(.caption)
-                        HealthBadge(health: HealthEngine.evaluate(service.reading).state)
+                        HealthBadge(health: HealthEngine.evaluate(service.reading, now: timeline.date).state)
                         Text(service.id.uuidString).font(.caption2.monospaced()).textSelection(.enabled)
                     } }
                     Button("Open project connections") { store.selectedTab = 1; store.projectPath = [project.id] }
                 }
             }
+        }
         }.navigationTitle("Ecosystem connections")
             .fileExporter(isPresented: $exporting, document: document, contentType: .json, defaultFilename: "head-quarter-relay-config") { result in if case .failure(let error) = result { store.errorMessage = error.localizedDescription } }
     }
@@ -35,7 +37,7 @@ struct MonitoringSetupView: View {
                     if service.provider == "https" {
                         row["endpoint"] = service.endpoint; row["timeoutSeconds"] = Int(service.timeout)
                         row["intervalSeconds"] = max(60, min(Int(service.expiry) / 2, 300))
-                        row["expectedHTTPStatus"] = service.expectedHTTPStatus; row["requiredBodyText"] = service.requiredBodyText
+                        row["expectedHTTPStatus"] = service.expectedHTTPStatus; row["requiredBodyText"] = service.requiredBodyText; row["timestampPath"] = service.timestampPath
                         if try CredentialVault.read(service.id) != nil { row["tokenEnv"] = "HQ_TARGET_TOKEN_" + service.id.uuidString.replacingOccurrences(of: "-", with: "") }
                     }
                     rows.append(row)

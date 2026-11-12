@@ -11,7 +11,7 @@ import WatchConnectivity
               WCSession.default.isPaired, WCSession.default.isWatchAppInstalled else { return }
         let payload = WatchPayload(dashboard: SharedStorage.load(), tasks: store.projects.flatMap { project in project.tasks.filter { $0.status != .completed }.map { .init(id: $0.id, project: project.name, title: $0.title, status: $0.status) } },
             incidents: store.projects.flatMap { project in project.activeIncidents.map { .init(id: $0.id, projectID: project.id, project: project.name, title: $0.title, health: $0.health, state: $0.state) } })
-        do { try WCSession.default.updateApplicationContext(["workspace": try JSONEncoder().encode(payload)]) }
+        do { try WCSession.default.updateApplicationContext(["workspace": try payload.boundedData()]) }
         catch { /* The next app update retries; lack of Watch delivery never changes service health. */ }
     }
     nonisolated func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) { Task { @MainActor in self.publish() } }

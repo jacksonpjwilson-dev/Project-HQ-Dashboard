@@ -65,6 +65,7 @@ import SwiftData
     var nextAllowedCheckAt: Date?
     var expectedHTTPStatus: Int = 200
     var requiredBodyText: String = ""
+    var timestampPath: String = ""
     var configurationRevision: Int = 0
     init(name: String, provider: String = "manual", endpoint: String = "", expiry: Double = 3600) {
         id = UUID(); self.name = name; self.provider = provider; self.endpoint = endpoint

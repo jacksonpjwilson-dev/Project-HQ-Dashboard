@@ -58,8 +58,12 @@ import Observation
         let mode = UserDefaults.standard.string(forKey: "sync.mode") ?? "relay"
         if mode == "cloudkit" {
             let identifier = UserDefaults.standard.string(forKey: "sync.container") ?? "iCloud.com.headquarter.app"
-            await sync.synchronize(store: self, transport: CloudWorkspaceTransport(containerIdentifier: identifier), scope: "cloudkit:\(identifier)")
-        } else if let endpoint = UserDefaults.standard.string(forKey: "sync.endpoint"), let url = URL(string: endpoint),
+            do {
+                let cloud = CloudWorkspaceTransport(containerIdentifier: identifier), scope = try await cloud.accountScope()
+                guard UserDefaults.standard.string(forKey: "sync.authorizedCloudScope") == scope else { sync.status = "Current iCloud account requires explicit authorization in sync settings."; return }
+                await sync.synchronize(store: self, transport: cloud, scope: scope)
+            } catch { sync.status = error.localizedDescription }
+        } else if let endpoint = UserDefaults.standard.string(forKey: "sync.endpoint"), let url = URL(string: endpoint), UserDefaults.standard.string(forKey: "sync.credentialEndpoint") == endpoint,
                   let token = try? CredentialVault.read(UUID(uuidString: "C5A234A8-71A2-4C7B-92AD-6DF7AE8D9B31")!) {
             await sync.synchronize(store: self, transport: HTTPWorkspaceTransport(endpoint: url, token: token), scope: endpoint)
         }
@@ -75,7 +79,10 @@ import Observation
                 for service in project.services { if let token = try CredentialVault.read(service.id) { credentials[service.id] = token } }
                 for id in credentials.keys { try CredentialVault.set("", for: id) }
             }
-            let saved = commit { context.delete(project) }
+            let saved = commit {
+                for cache in try context.fetch(FetchDescriptor<RepositoryCache>(predicate: #Predicate { $0.projectID == projectID })) { context.delete(cache) }
+                context.delete(project)
+            }
             if !saved { try restoreCredentials(credentials) }
             else { Task { await operations.end(projectID: projectID) } }
             return saved
@@ -89,7 +96,10 @@ import Observation
         var credentials: [UUID: String] = [:]
         do {
             if !isDemo, let token = try CredentialVault.read(id) { credentials[id] = token; try CredentialVault.set("", for: id) }
-            let saved = commit { project.services.removeAll { $0.id == id }; context.delete(service) }
+            let saved = commit {
+                for cache in try context.fetch(FetchDescriptor<RepositoryCache>(predicate: #Predicate { $0.id == id })) { context.delete(cache) }
+                project.services.removeAll { $0.id == id }; context.delete(service)
+            }
             if !saved { try restoreCredentials(credentials) }
             return saved
         } catch {
@@ -161,7 +171,7 @@ import Observation
             return (p, s)
         }
         do {
-            let configuration = MonitorConfiguration(id: serviceID, endpoint: endpoint, timeout: service.timeout, credential: try CredentialVault.read(serviceID), expectedHTTPStatus: service.expectedHTTPStatus, requiredBodyText: service.requiredBodyText)
+            let configuration = MonitorConfiguration(id: serviceID, endpoint: endpoint, timeout: service.timeout, credential: try CredentialVault.read(serviceID), expectedHTTPStatus: service.expectedHTTPStatus, requiredBodyText: service.requiredBodyText, timestampPath: service.timestampPath)
             let provider: any MonitoringProvider
             switch providerID {
             case "https": provider = EndpointProvider()

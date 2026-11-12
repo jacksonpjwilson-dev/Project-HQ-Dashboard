@@ -33,6 +33,7 @@ import WatchConnectivity
                 TimelineView(.periodic(from: .now, by: 30)) { timeline in
                     List {
                         if let payload = store.payload {
+                            Section("System health") { Label(payload.overallHealth(at: timeline.date).label, systemImage: payload.overallHealth(at: timeline.date).symbol) }
                             Section("Projects") { ForEach(payload.dashboard.projects) { project in
                                 VStack(alignment: .leading) { Text(project.name).font(.headline); Label(project.currentHealth(at: timeline.date).label, systemImage: project.currentHealth(at: timeline.date).symbol).font(.caption); ProgressView(value: project.progress) }
                             } }
@@ -46,6 +47,7 @@ import WatchConnectivity
                             Section("Outstanding work") { ForEach(payload.tasks) { task in VStack(alignment: .leading) { Text(task.project).font(.caption); Text(task.title); Text(task.status.rawValue).font(.caption) } } }
                             Section { Text("\(payload.dashboard.overallProgress.formatted(.percent)) development complete").font(.caption) }
                         }
+                        if store.payload?.truncated == true { Text("Showing a limited snapshot. Open iPhone for the full workspace.").font(.caption) }
                         Text(store.message).font(.caption).foregroundStyle(.secondary)
                     }
                 }.navigationTitle("Head Quarter")

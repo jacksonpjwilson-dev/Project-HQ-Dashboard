@@ -1,4 +1,5 @@
 import Foundation
+import CoreFoundation
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
@@ -10,6 +11,7 @@ struct MonitorConfiguration: Sendable {
     var credential: String?
     var expectedHTTPStatus: Int = 200
     var requiredBodyText: String = ""
+    var timestampPath: String = ""
 }
 protocol MonitoringProvider: Sendable {
     func check(_ configuration: MonitorConfiguration) async throws -> Evidence
@@ -48,8 +50,27 @@ struct EndpointProvider: MonitoringProvider {
         let bodyPasses = configuration.requiredBodyText.isEmpty || (String(data: body, encoding: .utf8)?.contains(configuration.requiredBodyText) ?? false)
         let state: Health = statusPasses && bodyPasses ? .healthy : status >= 500 ? .down : .error
         let reason = !statusPasses ? "HTTPS check returned HTTP \(status); expected \(configuration.expectedHTTPStatus)" : !bodyPasses ? "HTTP \(status) returned, but the required response text was missing" : "HTTPS criteria passed (HTTP \(status))"
+        if state == .healthy, !configuration.timestampPath.isEmpty {
+            guard let object = try? JSONSerialization.jsonObject(with: body), let date = dataTimestamp(object, path: configuration.timestampPath) else {
+                return .init(state: .needsHelp, explanation: "Configured JSON timestamp is missing or invalid: \(configuration.timestampPath)", observedAt: now, source: source)
+            }
+            guard date <= now.addingTimeInterval(60) else { return .init(state: .unknown, explanation: "Data timestamp is in the future; check the producer clock and timestamp units", observedAt: now, source: source) }
+            return .init(state: .healthy, explanation: "HTTPS criteria passed; evidence age follows JSON field \(configuration.timestampPath)", observedAt: date, source: source)
+        }
         return .init(state: state, explanation: reason, observedAt: now, source: source)
     }
+}
+private func dataTimestamp(_ object: Any, path: String) -> Date? {
+    var value: Any = object
+    let segments = path.split(separator: ".", omittingEmptySubsequences: false)
+    guard !segments.contains(where: { $0.isEmpty }) else { return nil }
+    for segment in segments {
+        guard let dictionary = value as? [String: Any], let child = dictionary[String(segment)] else { return nil }; value = child
+    }
+    if let number = value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID(), number.doubleValue.isFinite, (0...32_503_680_000).contains(number.doubleValue) { return Date(timeIntervalSince1970: number.doubleValue) }
+    guard let string = value as? String else { return nil }
+    let fractional = ISO8601DateFormatter(); fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return fractional.date(from: string) ?? ISO8601DateFormatter().date(from: string)
 }
 final class NoRedirects: NSObject, URLSessionTaskDelegate, Sendable {
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,

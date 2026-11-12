@@ -47,3 +47,29 @@ Source commit: `9cf6a9b0ad423c8b18bb006bcb9af1f22c8d0bb8`.
 The final Xcode test target contains those 57 shared tests plus eight Apple-only persistence/integration tests (65 total). At the last verification check, the bounded-startup retry was queued without an assigned runner. The final source's **app and widget builds have passed**, but a complete run of all 65 Simulator tests has **not** been observed. Earlier intermediate runs superseded by source fixes do not establish that final runtime result. The workflow page is the source of truth for any result posted after handoff.
 
 No Simulator screenshots were produced for the final revision during this session. Optional preview capture is bounded separately from required build/test validation and uses real Simulator output only. Widget appearance, Dynamic Island/Live Activities, notification delivery/actions, Shortcuts UI navigation, accessibility, and end-to-end editing still require interactive acceptance on a Simulator or signed device.
+
+
+## Continued development: integrations and Apple companion
+
+The previously pending baseline is now resolved: [run 43200387985](https://github.com/jacksonpjwilson-dev/Project-HQ-Dashboard/actions/runs/43200387985), commit `00270ea`, passed both builds and **65 iPhone Simulator tests, zero failures**, and produced actual light/dark app screenshots. Explicit Simulator boot and disabled parallel clones addressed the observed launch stall.
+
+The first expanded integration revision, `4143ebf`, passed [run 43293353320](https://github.com/jacksonpjwilson-dev/Project-HQ-Dashboard/actions/runs/43293353320):
+
+- watchOS companion Simulator build: BUILD SUCCEEDED.
+- iPhone and WidgetKit builds: BUILD SUCCEEDED.
+- iPhone Simulator XCTest: **80 test cases, one explicitly skipped live-network test, zero failures; TEST SUCCEEDED**.
+- Portable Swift suite on macOS: **68 test cases, one explicit live-network skip, zero failures**.
+- Relay suite on macOS: passed. Later extended TLS/signing/feed tests are recorded separately below.
+
+Local follow-up verification on 2026-11-12:
+
+- Portable Swift suite: **77 test cases, one explicit live-network skip, zero failures**.
+- Explicitly opted-in production GitHub client read of `jacksonpjwilson-dev/Project-HQ-Dashboard`: **one test passed**, with actual commits, PR #1, and workflow data. The Linux FoundationNetworking per-request session teardown issue observed in an initial attempt was corrected with a persistent ephemeral session whose headers remain request-scoped; no cookies or stored credentials are shared.
+- Python relay/Codex/push/feed suite: **41 tests, zero failures** in the final local rerun. Real loopback TLS/HMAC/CAS is exercised with labeled Codex fixtures. APNs ES256 signing uses a generated test key and a mocked HTTP/2 Apple transport.
+- Installed Codex CLI `0.167.0-alpha.4` generated its actual app-server JSON schemas successfully; the required fields for the three supported notification types were checked and captured in `integrations/codex/protocol-contract.json`. No authenticated live Codex thread was connected.
+
+The final account/endpoint guards, Watch payload budget, feed freshness additions, and extra tests require the final native rerun. Exact final revision/result will be recorded after that workflow completes. A real iCloud account, paired Watch, APNs delivery, arbitrary Codex desktop/cloud-session access, and production relay deployment are **not** established by these tests.
+
+### Nonfatal App Intents SDK diagnostic
+
+Xcode 16.4's `appintentsnltrainingprocessor` reported `Unable to parse extract.actionsdata` while processing dependency metadata in the first expanded iPhone build. It continued to train all six Head Quarter phrases, generated/copied their SSU YAML, archived the en locale, and returned a successful build. This diagnostic is not hidden or treated as successful Siri/Spotlight device acceptance. The owner must verify those interfaces on a signed device; SDK-specific metadata behavior remains an open acceptance item.

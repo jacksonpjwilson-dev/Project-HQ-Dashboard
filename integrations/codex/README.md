@@ -41,7 +41,7 @@ The app-server stdin/stdout client remains responsible for initialization, subsc
 
 Turn completion is not proof of a successful build, deployment, app uptime, or acceptance of all task requirements. The integration service name should identify the Codex runner, not a production uptime endpoint. Missing/stale observations expire through the service's configured freshness threshold; silence is never promoted to success. Successful development completion still requires a manual or independently verified task update.
 
-Event UUIDs are deterministic per thread/turn/transition. The local outbox and relay deduplicate retries. Remote task writes use revision compare-and-swap; newer timestamped user edits are preserved. Task titles, notes, dependencies, priorities, and weights are retained. The phone receives remote task updates through configured foreground synchronization or a manual sync, not an unsupported always-running background process.
+Event UUIDs are deterministic per thread/turn/transition. The local outbox and relay deduplicate retries. Remote task writes use revision compare-and-swap; newer timestamped user edits are preserved, and Completed tasks are never reopened automatically (reopen them manually before mapping new agent work). Task titles, notes, dependencies, priorities, and weights are retained. The phone receives remote task updates through configured foreground synchronization or a manual sync, not an unsupported always-running background process.
 
 ## Verification limits
 

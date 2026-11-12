@@ -46,11 +46,12 @@ def event_from_notification(message,project,service,thread_id,current_turn=None,
     return {'version':1,'eventID':event_id,'projectID':project,'serviceID':service,'kind':kind,'evidence':{'state':state,'explanation':detail,'observedAt':iso(),'source':source}},status
 
 class Bridge:
-    def __init__(self,endpoint,project,service,thread_id,secret,outbox,task_id=None,sync_token=None):
+    def __init__(self,endpoint,project,service,thread_id,secret,outbox,task_id=None,sync_token=None,opener=None):
         url=urllib.parse.urlsplit(endpoint)
         if url.scheme!='https' or not url.hostname or url.username or url.password:raise ValueError('Use an HTTPS relay URL without credentials')
         self.endpoint=endpoint.rstrip('/');self.project=str(uuid.UUID(project));self.service=str(uuid.UUID(service));self.thread_id=thread_id
         if not thread_id or len(secret)<32:raise ValueError('Explicit Codex thread ID and a relay write secret are required')
+        self.opener=opener or urllib.request.build_opener(NoRedirects())
         self.secret=secret;self.outbox=outbox;self.task_id=task_id;self.sync_token=sync_token;self.current_turn=None;self.source='Codex app-server' 
         if task_id:uuid.UUID(task_id)
         if bool(task_id)!=bool(sync_token):raise ValueError('Task synchronization requires both HQ_TASK_ID and HQ_SYNC_TOKEN')
@@ -66,7 +67,7 @@ class Bridge:
         data=None if payload is None else json.dumps(payload,separators=(',',':')).encode()
         request=urllib.request.Request(self.endpoint+path,data=data,method=method,headers=headers or {})
         if data is not None:request.add_header('Content-Type','application/json')
-        with urllib.request.build_opener(NoRedirects()).open(request,timeout=30) as response:return json.load(response)
+        with self.opener.open(request,timeout=30) as response:return json.load(response)
     def sync_task(self,event,status):
         if not self.task_id:return
         for attempt in range(3):
@@ -77,9 +78,10 @@ class Bridge:
             if project is None:raise ValueError('Configured project is not in the remote workspace')
             task=next((t for t in project['tasks'] if t['id'].lower()==self.task_id.lower()),None)
             if task is None:raise ValueError('Configured task is not in the remote workspace')
-            if any(e['id']==event['eventID'] for e in project['events']):return
+            if any(e['id'].lower()==event['eventID'].lower() for e in project['events']):return
             dependencies={t['id']:t for t in project['tasks']}
             if status in {'In Progress','Testing'} and any(dependencies.get(i,{}).get('status')!='Completed' for i in task.get('dependencyIDs',[])):status='Blocked'
+            if task.get('status')=='Completed':return
             modified=task.get('modifiedAt') or task.get('completedAt')
             if modified and datetime.fromisoformat(modified.replace('Z','+00:00')) > datetime.fromisoformat(event['evidence']['observedAt'].replace('Z','+00:00')):return
             task['status']=status;task['assignee']='Codex';task['completedAt']=None;task['modifiedAt']=event['evidence']['observedAt']

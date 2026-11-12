@@ -66,8 +66,10 @@ class PushStore:
         severity={'healthy':1,'unknown':0,'needsHelp':2,'error':3,'down':4}[state]
         with closing(sqlite3.connect(self.path)) as db,db:
             row=db.execute('SELECT id,severity FROM push_incidents WHERE project=? AND service=?',(project,service)).fetchone()
-            if severity==0:return
-            if severity==1:
+            if kind=='milestoneCompleted':
+                incident=event_id;category='milestone';severity=4
+            elif severity==0:return
+            elif severity==1:
                 if row is None:return
                 incident=row[0];category='recovery';db.execute('DELETE FROM push_incidents WHERE project=? AND service=?',(project,service))
             else:

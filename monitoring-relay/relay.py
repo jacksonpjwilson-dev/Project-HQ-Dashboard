@@ -5,6 +5,8 @@ Run behind a TLS reverse proxy. Nothing is deployed or scheduled by the iOS app.
 """
 from __future__ import annotations
 import argparse
+import math
+import http.client
 import hashlib
 import hmac
 import json
@@ -222,11 +224,21 @@ def check_target(target, now):
         with opener.open(request, timeout=target.get("timeoutSeconds", 15)) as response:
             status = response.status
             marker = target.get("requiredBodyText", "")
-            if marker:
+            timestamp_path=target.get("timestampPath", "")
+            if marker or timestamp_path:
                 data = response.read(1024 * 1024 + 1)
                 if len(data)>1024*1024 or marker not in data.decode("utf-8", errors="replace"): return "error", "Required response text was missing"
+                if timestamp_path and status==target.get("expectedHTTPStatus",200):
+                    try:
+                        value=json.loads(data)
+                        for segment in timestamp_path.split("."):value=value[segment]
+                        observed=float(value) if isinstance(value,(int,float)) and not isinstance(value,bool) else timestamp(value)
+                        if not math.isfinite(observed) or not 0<=observed<=32503680000:return "needsHelp", "Producer timestamp units or value are invalid"
+                        if observed>now+60:return "unknown", "Producer timestamp is in the future"
+                        if now-observed>target.get("evidenceExpirySeconds",600):return "unknown", "Producer data is stale despite an available HTTP endpoint"
+                    except (ValueError,KeyError,TypeError,OverflowError):return "needsHelp", "Configured producer timestamp is missing or invalid"
     except urllib.error.HTTPError as error: status = error.code
-    except (urllib.error.URLError, OSError, ValueError): return "unknown", "Monitor could not establish a verified connection"
+    except (urllib.error.URLError, OSError, ValueError, http.client.HTTPException): return "unknown", "Monitor could not establish a verified connection"
     if status == target.get("expectedHTTPStatus", 200): return "healthy", f"HTTPS health criteria passed (HTTP {status})"
     if status in {401, 403}: return "needsHelp", "Endpoint authentication requires attention"
     if status == 429: return "unknown", "Endpoint rate limited the monitor"
@@ -259,6 +271,8 @@ def load_configuration(path):
         if service.get("endpoint"):
             url = urllib.parse.urlsplit(service["endpoint"])
             if url.scheme != "https" or not url.hostname or url.username or url.password or url.fragment: raise ValidationError("Checks require HTTPS endpoints without embedded credentials")
+            if not isinstance(service.get("timestampPath",""),str):raise ValidationError("Invalid timestamp path")
+            if service.get("tokenEnv") is not None and (not isinstance(service["tokenEnv"],str) or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*",service["tokenEnv"])):raise ValidationError("Invalid credential environment variable")
             expected=service.get("expectedHTTPStatus",200)
             if isinstance(expected,bool) or not isinstance(expected,int) or not 200<=expected<=299:raise ValidationError("Invalid expected HTTP status")
             if not isinstance(service.get("requiredBodyText",""),str):raise ValidationError("Invalid response criterion")

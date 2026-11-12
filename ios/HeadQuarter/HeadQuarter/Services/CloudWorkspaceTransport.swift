@@ -9,6 +9,11 @@ actor CloudWorkspaceTransport: WorkspaceTransport {
         }
         return CKContainer(identifier: containerIdentifier).privateCloudDatabase
     }
+    func accountScope() async throws -> String {
+        _ = try database()
+        let id = try await CKContainer(identifier: containerIdentifier).userRecordID()
+        return "cloudkit:\(containerIdentifier):\(id.recordName)"
+    }
     private func loadRecord() async throws -> CKRecord? {
         do { return try await database().record(for: CKRecord.ID(recordName: "head-quarter-workspace-v1")) }
         catch let error as CKError where error.code == .unknownItem { return nil }

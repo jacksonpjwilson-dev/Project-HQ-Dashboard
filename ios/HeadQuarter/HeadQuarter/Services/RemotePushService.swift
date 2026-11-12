@@ -14,8 +14,8 @@ import Observation
         do {
             guard Bundle.main.object(forInfoDictionaryKey: "HQPushEnabled") as? Bool == true else { throw WorkspaceSyncError.configuration("Enable the Push Notifications capability with your Apple team, aps-environment entitlement, and HQPushEnabled before registering. No APNs connection has been claimed.") }
             guard let url = URL(string: endpoint), url.scheme == "https", url.host != nil, url.user == nil, url.password == nil else { throw MonitoringError.invalidURL }
-            if !credential.isEmpty { try CredentialVault.set(credential, for: credentialID) }
-            guard try CredentialVault.read(credentialID) != nil else { throw WorkspaceSyncError.configuration("Enter the relay's device-registration token.") }
+            if !credential.isEmpty { try CredentialVault.set(credential, for: credentialID); UserDefaults.standard.set(endpoint, forKey: "push.credentialEndpoint") }
+            guard try CredentialVault.read(credentialID) != nil, UserDefaults.standard.string(forKey: "push.credentialEndpoint") == endpoint else { throw WorkspaceSyncError.configuration("Enter the relay's device-registration token.") }
             UserDefaults.standard.set(endpoint, forKey: "push.endpoint")
             guard try await AlertService.shared.requestAuthorization() else { throw WorkspaceSyncError.configuration("Allow notifications in iPhone Settings before registering.") }
             var prefs = AlertPreferences.load(); prefs.enabled = true; try prefs.save()
@@ -45,7 +45,7 @@ import Observation
         } catch { status = "Disabled locally; server removal is pending: \(error.localizedDescription)" }
     }
     private func request(method: String, suffix: String, body: Data?) async throws -> Data {
-        guard let base = UserDefaults.standard.string(forKey: "push.endpoint"), let url = URL(string: base.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + suffix), url.scheme == "https", url.host != nil, url.user == nil, url.password == nil,
+        guard let base = UserDefaults.standard.string(forKey: "push.endpoint"), let url = URL(string: base.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + suffix), url.scheme == "https", url.host != nil, url.user == nil, url.password == nil, UserDefaults.standard.string(forKey: "push.credentialEndpoint") == base,
               let credential = try CredentialVault.read(credentialID) else { throw WorkspaceSyncError.configuration("Configure the HTTPS relay base URL and its device-registration token.") }
         var request = URLRequest(url: url, timeoutInterval: 30); request.httpMethod = method; request.httpBody = body
         request.setValue("Bearer \(credential)", forHTTPHeaderField: "Authorization"); request.setValue("application/json", forHTTPHeaderField: "Content-Type")

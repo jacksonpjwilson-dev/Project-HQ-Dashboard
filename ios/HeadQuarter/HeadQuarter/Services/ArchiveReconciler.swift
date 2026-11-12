@@ -30,7 +30,7 @@ import SwiftData
                     item.id = s.id; item.name = s.name; item.provider = s.provider; item.endpoint = s.endpoint
                     item.critical = s.critical; item.timeout = s.timeout; item.expiry = s.expiry; item.evidence = s.evidence
                     item.lastCheckedAt = s.lastCheckedAt; item.nextAllowedCheckAt = s.nextAllowedCheckAt
-                    item.expectedHTTPStatus = s.expectedHTTPStatus; item.requiredBodyText = s.requiredBodyText
+                    item.expectedHTTPStatus = s.expectedHTTPStatus; item.requiredBodyText = s.requiredBodyText; item.timestampPath = s.timestampPath ?? ""
                     item.configurationRevision += 1; return item
                 }
                 for old in services.values where !serviceIDs.contains(old.id) { store.context.delete(old) }
