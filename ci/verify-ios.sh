@@ -9,6 +9,9 @@ if ! command -v xcodebuild >/dev/null 2>&1; then
   exit 127
 fi
 xcodebuild -version
+xcodebuild -project "$HQ_PROJECT" -scheme HeadQuarterWatch \
+  -destination 'generic/platform=watchOS Simulator' -derivedDataPath "$HQ_RESULTS" \
+  CODE_SIGNING_ALLOWED=NO build
 xcodebuild -project "$HQ_PROJECT" -scheme HeadQuarter \
   -destination 'generic/platform=iOS Simulator' -derivedDataPath "$HQ_RESULTS" \
   CODE_SIGNING_ALLOWED=NO build

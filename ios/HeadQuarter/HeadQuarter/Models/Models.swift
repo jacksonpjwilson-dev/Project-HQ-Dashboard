@@ -42,9 +42,10 @@ import SwiftData
     var parentID: UUID?
     var dependencyIDs: [UUID]
     var milestoneID: UUID?
+    var modifiedAt: Date?
     init(title: String) {
         id = UUID(); self.title = title; notes = ""; statusRaw = WorkStatus.backlog.rawValue
-        priority = 2; weight = 1; assignee = ""; blocker = ""; createdAt = .now; dependencyIDs = []
+        priority = 2; weight = 1; assignee = ""; blocker = ""; createdAt = .now; modifiedAt = .now; dependencyIDs = []
     }
     var status: WorkStatus {
         get { WorkStatus(rawValue: statusRaw) ?? .backlog }
@@ -123,10 +124,25 @@ import SwiftData
     var hasSeeded: Bool
     init() { key = "workspace"; hasSeeded = true }
 }
-enum Persistence {
+@Model final class RepositoryCache {
+    @Attribute(.unique) var id: UUID
+    var projectID: UUID
+    var payload: Data?
+    var errorMessage: String?
+    var errorAt: Date?
+    init(id: UUID, projectID: UUID) { self.id = id; self.projectID = projectID }
+    var activity: RepositoryActivity? {
+        get { payload.flatMap { try? JSONDecoder().decode(RepositoryActivity.self, from: $0) } }
+        set { payload = newValue.flatMap { try? JSONEncoder().encode($0) } }
+    }
+}
+@MainActor enum Persistence {
+    private static var sharedContainer: ModelContainer?
     static func container(inMemory: Bool = false) throws -> ModelContainer {
-        let schema = Schema([Project.self, WorkItem.self, MonitoredService.self, ActivityEvent.self, Incident.self, Milestone.self, WorkspaceConfiguration.self])
-        return try ModelContainer(for: schema, configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory, groupContainer: .none, cloudKitDatabase: .none)])
+        if !inMemory, let sharedContainer { return sharedContainer }
+        let schema = Schema([Project.self, WorkItem.self, MonitoredService.self, ActivityEvent.self, Incident.self, Milestone.self, WorkspaceConfiguration.self, RepositoryCache.self])
+        let container = try ModelContainer(for: schema, configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory, groupContainer: .none, cloudKitDatabase: .none)])
+        if !inMemory { sharedContainer = container }; return container
     }
     @MainActor static func seed(_ context: ModelContext) throws {
         guard try context.fetchCount(FetchDescriptor<WorkspaceConfiguration>()) == 0 else { return }

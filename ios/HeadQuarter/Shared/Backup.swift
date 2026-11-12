@@ -45,6 +45,7 @@ struct TaskArchive: Codable, Sendable {
     var id: UUID; var title: String; var notes: String; var status: WorkStatus; var priority: Int
     var weight: Double; var assignee: String; var blocker: String; var createdAt: Date
     var plannedAt: Date?; var completedAt: Date?; var parentID: UUID?; var dependencyIDs: [UUID]; var milestoneID: UUID?
+    var modifiedAt: Date? = nil
 }
 struct ServiceArchive: Codable, Sendable {
     var id: UUID; var name: String; var provider: String; var endpoint: String; var critical: Bool

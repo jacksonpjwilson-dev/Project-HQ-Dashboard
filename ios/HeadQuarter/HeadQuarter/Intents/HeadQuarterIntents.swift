@@ -77,7 +77,7 @@ struct CreateTaskIntent: AppIntent {
         match.tasks.append(task)
         match.events.append(ActivityEvent(kind: .manualReport, message: "Task created: \(cleanTitle)", source: "Apple Shortcuts"))
         try container.mainContext.save()
-        AppStore(container: container).publishSnapshot()
+        AppStore(container: container, connectWatch: false).publishSnapshot()
         return .result(dialog: IntentDialog(stringLiteral: "Created \(cleanTitle) in \(match.name)."))
     }
 }

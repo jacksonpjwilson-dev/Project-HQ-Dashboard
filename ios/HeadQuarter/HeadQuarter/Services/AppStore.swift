@@ -16,12 +16,14 @@ import Observation
     var showOnlyHelp = false
     var showOnlyActive = false
     let operations = LiveOperations()
+    let sync = SyncCoordinator()
+    @ObservationIgnored private var watch: WatchBridge?
     var context: ModelContext { container.mainContext }
     var projects: [Project] {
         do { return try context.fetch(FetchDescriptor<Project>(sortBy: [SortDescriptor(\Project.order), SortDescriptor(\Project.name)])) }
         catch { errorMessage = error.localizedDescription; return [] }
     }
-    init(container: ModelContainer, isDemo: Bool = false) { self.container = container; self.isDemo = isDemo }
+    init(container: ModelContainer, isDemo: Bool = false, connectWatch: Bool = true) { self.container = container; self.isDemo = isDemo; if !isDemo && connectWatch { watch = WatchBridge(store: self) } }
     @discardableResult func commit(_ changes: () throws -> Void) -> Bool {
         do { try changes(); try context.save() }
         catch { context.rollback(); errorMessage = "Your change was not saved: \(error.localizedDescription)"; return false }
@@ -39,8 +41,28 @@ import Observation
                 readings: project.services.map(\.reading), requireAllChecks: project.requireAllChecks)
         })
         snapshot.overallProgress = ProgressEngine.completion(projects.flatMap(\.tasks).map { .init(weight: $0.weight, completed: $0.status == .completed) })
-        do { try SharedStorage.save(snapshot); WidgetCenter.shared.reloadAllTimelines() }
+        do { try SharedStorage.save(snapshot); WidgetCenter.shared.reloadAllTimelines(); watch?.publish() }
         catch { errorMessage = "App data was saved, but widget sharing failed: \(error.localizedDescription)" }
+    }
+    func repositoryCache(serviceID: UUID, projectID: UUID) -> RepositoryCache {
+        let id = serviceID
+        if let cache = try? context.fetch(FetchDescriptor<RepositoryCache>(predicate: #Predicate { $0.id == id })).first { return cache }
+        let cache = RepositoryCache(id: serviceID, projectID: projectID); context.insert(cache); return cache
+    }
+    func cachedActivity(serviceID: UUID) -> RepositoryCache? {
+        let id = serviceID
+        return try? context.fetch(FetchDescriptor<RepositoryCache>(predicate: #Predicate { $0.id == id })).first
+    }
+    func syncAutomatically() async {
+        guard !isDemo, UserDefaults.standard.bool(forKey: "sync.auto") else { return }
+        let mode = UserDefaults.standard.string(forKey: "sync.mode") ?? "relay"
+        if mode == "cloudkit" {
+            let identifier = UserDefaults.standard.string(forKey: "sync.container") ?? "iCloud.com.headquarter.app"
+            await sync.synchronize(store: self, transport: CloudWorkspaceTransport(containerIdentifier: identifier), scope: "cloudkit:\(identifier)")
+        } else if let endpoint = UserDefaults.standard.string(forKey: "sync.endpoint"), let url = URL(string: endpoint),
+                  let token = try? CredentialVault.read(UUID(uuidString: "C5A234A8-71A2-4C7B-92AD-6DF7AE8D9B31")!) {
+            await sync.synchronize(store: self, transport: HTTPWorkspaceTransport(endpoint: url, token: token), scope: endpoint)
+        }
     }
     func addProject(name: String, summary: String, icon: String) -> Bool {
         commit { context.insert(Project(name: name, summary: summary, icon: icon, order: (projects.map(\.order).max() ?? -1) + 1)) }
@@ -147,13 +169,20 @@ import Observation
             case "relay": provider = RelayProvider()
             default: throw MonitoringError.invalidPayload
             }
-            let evidence = try await provider.check(configuration)
+            let evidence: Evidence
+            if providerID == "github" {
+                let activity = try await GitHubRepositoryProvider().fetch(repository: endpoint, token: configuration.credential)
+                guard let (p, s) = currentConnection() else { return }
+                _ = commit { let cache = repositoryCache(serviceID: s.id, projectID: p.id); cache.activity = activity; cache.errorMessage = nil; cache.errorAt = nil }
+                evidence = activity.workflow
+            } else { evidence = try await provider.check(configuration) }
             guard !Task.isCancelled, let (currentProject, currentService) = currentConnection() else { return }
             if currentService.nextAllowedCheckAt != nil { _ = commit { currentService.nextAllowedCheckAt = nil } }
             let kind: EventKind = providerID == "github" ? (evidence.state == .healthy ? .buildSucceeded : evidence.state == .error ? .buildFailed : .manualReport) : (evidence.state == .healthy ? .manualReport : .healthCheckFailed)
             record(evidence, for: currentService, in: currentProject, kind: kind)
         } catch {
             guard !Task.isCancelled, let (currentProject, currentService) = currentConnection() else { return }
+            if providerID == "github" { _ = commit { let cache = repositoryCache(serviceID: serviceID, projectID: projectID); cache.errorMessage = error.localizedDescription; cache.errorAt = .now } }
             if let monitorError = error as? MonitoringError, case .rateLimited(let until) = monitorError { _ = commit { currentService.nextAllowedCheckAt = until } }
             let health: Health = (error as? MonitoringError) == .authentication ? .needsHelp : .unknown
             // Device connectivity is not evidence that a remote service is down.
@@ -198,6 +227,7 @@ import Observation
         }
         let previous = task.status
         let saved = commit {
+            task.modifiedAt = .now
             task.title = title; task.notes = notes; task.status = status; task.priority = priority; task.weight = weight
             task.assignee = assignee; task.blocker = blocker; task.plannedAt = due; task.parentID = parentID
             task.dependencyIDs = dependencyIDs; task.milestoneID = milestoneID

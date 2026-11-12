@@ -31,6 +31,12 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>HQAPNSEnvironment</key>
+	<string>development</string>
+	<key>HQCloudKitEnabled</key>
+	<false/>
+	<key>HQPushEnabled</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSSupportsLiveActivities</key>

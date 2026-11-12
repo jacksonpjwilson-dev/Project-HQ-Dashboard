@@ -35,7 +35,7 @@ struct RootView: View {
         .task(id: checkMinutes) {
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .seconds(max(1, checkMinutes) * 60)) } catch { return }
-                if scenePhase == .active { await store.refresh() }
+                if scenePhase == .active { await store.refresh(); await store.syncAutomatically() }
             }
         }
         .onChange(of: pendingRoute) { _, _ in consumeIntentRoute() }

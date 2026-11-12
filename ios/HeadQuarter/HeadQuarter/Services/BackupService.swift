@@ -14,7 +14,7 @@ struct BackupDocument: FileDocument {
     static func export(_ projects: [Project]) throws -> Data {
         try BackupCodec.encode(.init(exportedAt: .now, projects: projects.map { p in
             ProjectArchive(id: p.id, name: p.name, summary: p.summary, icon: p.icon, phase: p.phase, priority: p.priority, order: p.order, requireAllChecks: p.requireAllChecks, createdAt: p.createdAt,
-                tasks: p.tasks.map { t in TaskArchive(id: t.id, title: t.title, notes: t.notes, status: t.status, priority: t.priority, weight: t.weight, assignee: t.assignee, blocker: t.blocker, createdAt: t.createdAt, plannedAt: t.plannedAt, completedAt: t.completedAt, parentID: t.parentID, dependencyIDs: t.dependencyIDs, milestoneID: t.milestoneID) },
+                tasks: p.tasks.map { t in TaskArchive(id: t.id, title: t.title, notes: t.notes, status: t.status, priority: t.priority, weight: t.weight, assignee: t.assignee, blocker: t.blocker, createdAt: t.createdAt, plannedAt: t.plannedAt, completedAt: t.completedAt, parentID: t.parentID, dependencyIDs: t.dependencyIDs, milestoneID: t.milestoneID, modifiedAt: t.modifiedAt) },
                 services: p.services.map { s in ServiceArchive(id: s.id, name: s.name, provider: s.provider, endpoint: s.endpoint, critical: s.critical, timeout: s.timeout, expiry: s.expiry, evidence: s.evidence, lastCheckedAt: s.lastCheckedAt, nextAllowedCheckAt: s.nextAllowedCheckAt, expectedHTTPStatus: s.expectedHTTPStatus, requiredBodyText: s.requiredBodyText) },
                 events: p.events.map { e in EventArchive(id: e.id, kind: e.kind, message: e.message, source: e.source, timestamp: e.timestamp, serviceID: e.serviceID) },
                 incidents: p.incidents.map { i in IncidentArchive(id: i.id, serviceID: i.serviceID, title: i.title, health: i.health, state: i.state, openedAt: i.openedAt, updatedAt: i.updatedAt, resolvedAt: i.resolvedAt, lastNotifiedAt: i.lastNotifiedAt) },
@@ -44,7 +44,7 @@ struct BackupDocument: FileDocument {
                 project.tasks = p.tasks.map { t in
                     let task = WorkItem(title: t.title); task.id = t.id; task.notes = t.notes; task.status = t.status; task.priority = t.priority
                     task.weight = t.weight; task.assignee = t.assignee; task.blocker = t.blocker; task.createdAt = t.createdAt
-                    task.plannedAt = t.plannedAt; task.completedAt = t.completedAt; task.parentID = t.parentID; task.dependencyIDs = t.dependencyIDs; task.milestoneID = t.milestoneID
+                    task.plannedAt = t.plannedAt; task.completedAt = t.completedAt; task.parentID = t.parentID; task.dependencyIDs = t.dependencyIDs; task.milestoneID = t.milestoneID; task.modifiedAt = t.modifiedAt
                     return task
                 }
                 project.services = p.services.map { s in

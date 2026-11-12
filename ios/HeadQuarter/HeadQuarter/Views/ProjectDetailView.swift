@@ -62,6 +62,10 @@ struct ProjectDetailView: View {
                         HStack { Text("Check connected services"); Spacer(); if store.isRefreshing { ProgressView() } }
                     }.disabled(store.isRefreshing || store.isDemo)
                 } header: { Text("Connected services") } footer: { Text("Checks run while the app is open. Freshness rules continue to apply when checks stop; continuous monitoring requires an external relay.") }
+                Section("Repository activity") {
+                    ForEach(project.services.filter { $0.provider == "github" }) { service in NavigationLink(service.endpoint.isEmpty ? "Configure repository" : service.endpoint) { RepositoryActivityView(project: project, service: service) } }
+                    if !project.services.contains(where: { $0.provider == "github" }) { Text("Add a GitHub service to fetch commits, pull requests, and workflow status.").font(.caption).foregroundStyle(.secondary) }
+                }
                 Section("Build and deployment history") {
                     eventRows(project.events.filter { [.buildSucceeded, .buildFailed, .deploymentCompleted].contains($0.kind) })
                 }

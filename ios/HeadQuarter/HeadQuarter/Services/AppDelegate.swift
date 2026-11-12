@@ -12,6 +12,8 @@ import UserNotifications
         center.setNotificationCategories([UNNotificationCategory(identifier: "HQ_INCIDENT", actions: [acknowledge, resolve], intentIdentifiers: [])])
         return true
     }
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) { Task { await RemotePushService.shared.received(token: deviceToken) } }
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) { RemotePushService.shared.status = "Apple registration failed: \(error.localizedDescription)" }
     func configure(_ store: AppStore) {
         self.store = store
         if let pending { handle(action: pending.0, projectID: pending.1, incidentID: pending.2); self.pending = nil }
@@ -37,5 +39,6 @@ import UserNotifications
             }
         }
         store.selectedTab = 1; store.projectPath = [projectID]
+        if let project = store.projects.first(where: { $0.id == projectID }) { Task { await store.refresh(project: project) } }
     }
 }

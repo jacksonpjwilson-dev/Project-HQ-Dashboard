@@ -17,12 +17,15 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section("Workspace") {
+                NavigationLink("Ecosystem monitoring connections") { MonitoringSetupView() }
+                NavigationLink("Project & task synchronization") { SyncSettingsView() }
                 NavigationLink("Dashboard card order") { DashboardOrderView() }
                 Picker("Appearance", selection: $appearance) { Text("System").tag("system"); Text("Light").tag("light"); Text("Dark").tag("dark") }
                 Stepper("Check every \(frequency) min while open", value: $frequency, in: 1...60)
                 Text("Automatic checks run only while this app is active. Configure service evidence expiry and request timeout in each service's settings.").font(.caption).foregroundStyle(.secondary)
             }
             Section("Notifications") {
+                NavigationLink("Remote push configuration") { RemotePushSettingsView() }
                 Toggle("Enable alerts", isOn: $alerts.enabled)
                 Picker("Minimum severity", selection: $alerts.threshold) { Text("Needs Help and above").tag(2); Text("Errors and outages").tag(3); Text("Critical outages").tag(4) }
                 Toggle("Service recovery", isOn: $alerts.recovery)
@@ -41,7 +44,7 @@ struct SettingsView: View {
                                 guard allowed else { store.errorMessage = "Notification permission is disabled. Enable it in iPhone Settings."; return }
                             }
                             guard !store.isDemo else { status = "Demo preferences are not saved."; return }
-                            try alerts.save(); status = "Notification preferences saved."
+                            try alerts.save(); await RemotePushService.shared.refreshPreferences(); status = "Notification preferences saved."
                         } catch { store.errorMessage = error.localizedDescription }
                     }
                 }
@@ -57,9 +60,9 @@ struct SettingsView: View {
             }.disabled(store.isDemo)
             Section("Connections and capabilities") {
                 Text("Configure manual reports, HTTPS health endpoints, GitHub Actions, and an optional monitoring relay from a project's Connected Services section.")
-                Text("Codex sessions: no supported live connection configured. No external account is connected automatically.").font(.caption).foregroundStyle(.secondary)
-                Text("Cloud sync: local storage only. CloudKit synchronization is not enabled in this version; use backups to transfer your workspace.").font(.caption).foregroundStyle(.secondary)
-                Text("Apple Watch companion: not included; this environment cannot build or validate watchOS targets.").font(.caption).foregroundStyle(.secondary)
+                Text("Codex app-server and CLI notifications can be forwarded by the authenticated workstation bridge. Configure its exact project, service, thread, and optional task IDs; unrelated desktop/cloud sessions are not exposed by this integration.").font(.caption).foregroundStyle(.secondary)
+                Text("Relay and private CloudKit synchronization can be configured under Project & task synchronization. CloudKit requires Apple configuration before use.").font(.caption).foregroundStyle(.secondary)
+                Text("The companion Watch app receives paired-phone snapshots and can queue incident acknowledgements. Cached health expires on the Watch; pairing and physical-device behavior require validation.").font(.caption).foregroundStyle(.secondary)
                 Button("End current Live Activities") { Task { await store.operations.endAll(); status = "Live Activities ended." } }.disabled(store.isDemo)
             }
             if !store.isDemo { Section("Demonstration") { Button("Explore temporary example data") { showingDemo = true }; Text("Example data lives in a separate in-memory workspace and never replaces your projects or widget snapshot.").font(.caption).foregroundStyle(.secondary) } }

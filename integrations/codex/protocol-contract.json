@@ -1,0 +1,36 @@
+{
+  "source": "codex app-server generate-json-schema",
+  "cliVersion": "0.167.0-alpha.4",
+  "notifications": {
+    "TurnStartedNotification": {
+      "required": [
+        "threadId",
+        "turn"
+      ],
+      "properties": [
+        "threadId",
+        "turn"
+      ]
+    },
+    "TurnCompletedNotification": {
+      "required": [
+        "threadId",
+        "turn"
+      ],
+      "properties": [
+        "threadId",
+        "turn"
+      ]
+    },
+    "ThreadStatusChangedNotification": {
+      "required": [
+        "status",
+        "threadId"
+      ],
+      "properties": [
+        "status",
+        "threadId"
+      ]
+    }
+  }
+}

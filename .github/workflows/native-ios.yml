@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'ios/**'
+      - 'monitoring-relay/**'
+      - 'integrations/**'
       - 'ci/verify-ios.sh'
       - 'ci/capture-ios-previews.sh'
       - '.github/workflows/native-ios.yml'
@@ -22,7 +24,7 @@ jobs:
         run: swift test --package-path ios/HeadQuarter
       - name: Test monitoring relay
         run: python3 -m unittest discover -s monitoring-relay/tests -v
-      - name: Build iPhone app and widgets, then run iOS tests
+      - name: Build Watch, iPhone and widgets, then run iOS tests
         run: bash ci/verify-ios.sh
       - name: Capture actual Simulator previews
         timeout-minutes: 3

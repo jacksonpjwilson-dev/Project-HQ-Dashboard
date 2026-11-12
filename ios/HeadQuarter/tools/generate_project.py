@@ -68,7 +68,20 @@ for name,sources,settings,dependencies in [('HeadQuarter',app_sources,app_settin
     if name=='HeadQuarter': phases.append(embed)
     product_type={'HeadQuarter':'com.apple.product-type.application','HeadQuarterWidgets':'com.apple.product-type.app-extension','HeadQuarterTests':'com.apple.product-type.bundle.unit-test'}[name]
     add('target:'+name,'PBXNativeTarget',buildConfigurationList=config_list(name,settings),buildPhases=phases,buildRules=[],dependencies=dependencies,name=name,productName=name,productReference=products[name],productType=product_type)
-add('project','PBXProject',attributes={'BuildIndependentTargetsInParallel':'YES','LastUpgradeCheck':'1620','TargetAttributes':{app_id:{'CreatedOnToolsVersion':'16.2','SystemCapabilities':{'com.apple.ApplicationGroups.iOS':{'enabled':1}}},widget_id:{'CreatedOnToolsVersion':'16.2','SystemCapabilities':{'com.apple.ApplicationGroups.iOS':{'enabled':1}}},test_id:{'CreatedOnToolsVersion':'16.2','TestTargetID':app_id}}},buildConfigurationList=project_configs,compatibilityVersion='Xcode 14.0',developmentRegion='en',hasScannedForEncodings=0,knownRegions=['en','Base'],mainGroup=main_group,productRefGroup=products_group,projectDirPath='',projectRoot='',targets=[app_id,widget_id,test_id])
+# Modern single-target watchOS SwiftUI companion.
+watch_id = identifier('target:HeadQuarterWatch')
+watch_paths = ['HeadQuarterWatch/HeadQuarterWatchApp.swift', 'Shared/Domain.swift', 'Shared/WatchPayload.swift']
+watch_refs = {path: refs.get(path) or file(path, 'sourcecode.swift') for path in watch_paths}
+watch_product = add('product:HeadQuarterWatch','PBXFileReference',explicitFileType='wrapper.application',includeInIndex=0,path='HeadQuarterWatch.app',sourceTree='BUILT_PRODUCTS_DIR')
+objects[products_group]['children'].append(watch_product)
+objects[main_group]['children'].append(group('Apple Watch',list(watch_refs.values())))
+watch_settings = dict(common,SDKROOT='watchos',SUPPORTED_PLATFORMS='watchos watchsimulator',WATCHOS_DEPLOYMENT_TARGET='10.0',TARGETED_DEVICE_FAMILY='4',PRODUCT_BUNDLE_IDENTIFIER='com.headquarter.app.watchkitapp',PRODUCT_NAME='$(TARGET_NAME)',INFOPLIST_FILE='HeadQuarterWatch/Info.plist',SKIP_INSTALL='YES',LD_RUNPATH_SEARCH_PATHS=['$(inherited)','@executable_path/Frameworks'])
+add('target:HeadQuarterWatch','PBXNativeTarget',buildConfigurationList=config_list('HeadQuarterWatch',watch_settings),buildPhases=[phase('HeadQuarterWatch','PBXSourcesBuildPhase',[build_file('HeadQuarterWatch',ref) for ref in watch_refs.values()]),phase('HeadQuarterWatch','PBXFrameworksBuildPhase',[]),phase('HeadQuarterWatch','PBXResourcesBuildPhase',[build_file('HeadQuarterWatch',file('HeadQuarterWatch/PrivacyInfo.xcprivacy','text.xml'))])],buildRules=[],dependencies=[],name='HeadQuarterWatch',productName='HeadQuarterWatch',productReference=watch_product,productType='com.apple.product-type.application')
+watch_proxy=add('proxy:watch','PBXContainerItemProxy',containerPortal=project_id,proxyType=1,remoteGlobalIDString=watch_id,remoteInfo='HeadQuarterWatch')
+objects[app_id]['dependencies'].append(add('dependency:watch','PBXTargetDependency',target=watch_id,targetProxy=watch_proxy))
+watch_embed_file=add('embed:watch','PBXBuildFile',fileRef=watch_product,settings={'ATTRIBUTES':['RemoveHeadersOnCopy']})
+objects[app_id]['buildPhases'].append(add('phase:embed-watch','PBXCopyFilesBuildPhase',buildActionMask=2147483647,dstPath='$(CONTENTS_FOLDER_PATH)/Watch',dstSubfolderSpec=16,files=[watch_embed_file],name='Embed Watch Content',runOnlyForDeploymentPostprocessing=0))
+add('project','PBXProject',attributes={'BuildIndependentTargetsInParallel':'YES','LastUpgradeCheck':'1620','TargetAttributes':{app_id:{'CreatedOnToolsVersion':'16.2','SystemCapabilities':{'com.apple.ApplicationGroups.iOS':{'enabled':1}}},widget_id:{'CreatedOnToolsVersion':'16.2','SystemCapabilities':{'com.apple.ApplicationGroups.iOS':{'enabled':1}}},test_id:{'CreatedOnToolsVersion':'16.2','TestTargetID':app_id}}},buildConfigurationList=project_configs,compatibilityVersion='Xcode 14.0',developmentRegion='en',hasScannedForEncodings=0,knownRegions=['en','Base'],mainGroup=main_group,productRefGroup=products_group,projectDirPath='',projectRoot='',targets=[app_id,widget_id,test_id,watch_id])
 def serialize(value,depth=0):
     if isinstance(value,dict): return '{\n'+''.join('\t'*(depth+1)+json.dumps(str(k))+' = '+serialize(v,depth+1)+';\n' for k,v in value.items())+'\t'*depth+'}'
     if isinstance(value,list): return '(\n'+''.join('\t'*(depth+1)+serialize(v,depth+1)+',\n' for v in value)+'\t'*depth+')'
@@ -79,7 +92,7 @@ project=ROOT/'HeadQuarter.xcodeproj';project.mkdir(exist_ok=True)
 # Shared schemes are committed so command-line builds do not depend on a user's Xcode state.
 from xml.sax.saxutils import escape
 schemes=project/'xcshareddata/xcschemes';schemes.mkdir(parents=True,exist_ok=True)
-def ref(name): return f'<BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="{identifier("target:"+name)}" BuildableName="{name}{".app" if name=="HeadQuarter" else ".appex" if name=="HeadQuarterWidgets" else ".xctest"}" BlueprintName="{name}" ReferencedContainer="container:HeadQuarter.xcodeproj"/>'
+def ref(name): return f'<BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="{identifier("target:"+name)}" BuildableName="{name}{".app" if name=="HeadQuarter" else ".appex" if name=="HeadQuarterWidgets" else ".app" if name=="HeadQuarterWatch" else ".xctest"}" BlueprintName="{name}" ReferencedContainer="container:HeadQuarter.xcodeproj"/>'
 (schemes/'HeadQuarter.xcscheme').write_text(f"""<?xml version="1.0" encoding="UTF-8"?>
 <Scheme LastUpgradeVersion="1620" version="1.3">
 <BuildAction parallelizeBuildables="YES" buildImplicitDependencies="YES"><BuildActionEntries><BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">{ref('HeadQuarter')}</BuildActionEntry></BuildActionEntries></BuildAction>
@@ -91,3 +104,5 @@ def ref(name): return f'<BuildableReference BuildableIdentifier="primary" Bluepr
 (schemes/'HeadQuarterWidgets.xcscheme').write_text(f"""<?xml version="1.0" encoding="UTF-8"?>
 <Scheme LastUpgradeVersion="1620" version="1.3"><BuildAction parallelizeBuildables="YES" buildImplicitDependencies="YES"><BuildActionEntries><BuildActionEntry buildForTesting="NO" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">{ref('HeadQuarterWidgets')}</BuildActionEntry></BuildActionEntries></BuildAction><AnalyzeAction buildConfiguration="Debug"/><ArchiveAction buildConfiguration="Release" revealArchiveInOrganizer="YES"/></Scheme>""")
 print(f'Generated {len(objects)} objects, {len(app_sources)} app sources, {len(widget_sources)} widget sources, {len(test_sources)} test files')
+
+(schemes/'HeadQuarterWatch.xcscheme').write_text(f'<Scheme LastUpgradeVersion="1620" version="1.3"><BuildAction parallelizeBuildables="YES" buildImplicitDependencies="YES"><BuildActionEntries><BuildActionEntry buildForTesting="NO" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">{ref("HeadQuarterWatch")}</BuildActionEntry></BuildActionEntries></BuildAction><AnalyzeAction buildConfiguration="Debug"/></Scheme>')

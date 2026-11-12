@@ -23,6 +23,8 @@ from contextlib import closing
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from workspace import WorkspaceStore, RevisionConflict, MAX_WORKSPACE
+from push import PushStore, APNsSender
 
 MAX_BODY = 65536
 STATES = {"healthy", "needsHelp", "error", "down", "unknown"}
@@ -71,6 +73,8 @@ def authenticate_event(secret, sent_at, signature, body, now):
 class EventStore:
     def __init__(self, path):
         self.path = str(path)
+        self.push = None
+        self.service_expiries = {}
         with closing(self.connect()) as db:
             db.execute("PRAGMA journal_mode=WAL")
             db.executescript("""
@@ -91,13 +95,17 @@ class EventStore:
         event_id, project, service, kind, state, explanation, observed, source = event
         with closing(self.connect()) as db, db:
             result = db.execute("INSERT OR IGNORE INTO events VALUES (?,?,?,?,?,?,?,?,?)", (*event, now))
-            if result.rowcount == 0: return False
-            db.execute("""INSERT INTO evidence VALUES (?,?,?,?,?,?)
+            created = result.rowcount != 0
+            previous = db.execute("SELECT state,observed_at FROM evidence WHERE project_id=? AND service_id=?", (project,service)).fetchone()
+            updated = db.execute("""INSERT INTO evidence VALUES (?,?,?,?,?,?)
                 ON CONFLICT(project_id, service_id) DO UPDATE SET state=excluded.state,
                 explanation=excluded.explanation, observed_at=excluded.observed_at, source=excluded.source
-                WHERE excluded.observed_at >= evidence.observed_at""", (project, service, state, explanation, observed, source))
+                WHERE excluded.observed_at >= evidence.observed_at AND ?""", (project, service, state, explanation, observed, source, 1 if created else 0))
             db.execute("DELETE FROM events WHERE received_at < ?", (now - 30 * 86400,))
-            return True
+        eligible = (created and updated.rowcount > 0) or (not created and previous == (state, observed))
+        if self.push is not None and eligible:
+            self.push.observe(event, self.service_expiries.get((project,service),600), now)
+        return created
     def evidence(self, project, service):
         with closing(self.connect()) as db:
             row = db.execute("SELECT state,explanation,observed_at,source FROM evidence WHERE project_id=? AND service_id=?", (project, service)).fetchone()
@@ -106,7 +114,10 @@ class EventStore:
 
 class RelayServer(ThreadingHTTPServer):
     daemon_threads = True
-    def __init__(self, address, store, allowed, read_token, write_secret):
+    def __init__(self, address, store, allowed, read_token, write_secret, sync_token=None, device_token=None, push_sender=None):
+        self.workspace = WorkspaceStore(store.path); self.sync_token = sync_token
+        self.device_token = device_token; self.push_sender = push_sender; self.push = PushStore(store.path)
+        store.push = self.push
         self.store = store; self.allowed = allowed; self.read_token = read_token; self.write_secret = write_secret
         super().__init__(address, RelayHandler)
 
@@ -122,9 +133,34 @@ class RelayHandler(BaseHTTPRequestHandler):
         self.send_response(status); self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(data))); self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff"); self.end_headers(); self.wfile.write(data)
+    def sync_authorized(self):
+        if not self.server.sync_token:
+            self.reply(503, {"error": "workspace synchronization is not configured"}); return False
+        if not hmac.compare_digest(self.headers.get("Authorization", "").encode(), ("Bearer " + self.server.sync_token).encode()):
+            self.reply(401, {"error": "unauthorized"}); return False
+        return True
+    def do_PUT(self):
+        if self.path != "/v1/workspace": self.close_connection = True; return self.reply(404, {"error": "not found"})
+        if not self.sync_authorized(): self.close_connection = True; return
+        try:
+            if self.headers.get("Transfer-Encoding") is not None or self.headers.get_content_type() != "application/json": raise ValueError()
+            length = int(self.headers.get("Content-Length", "-1"))
+            if not 0 < length <= MAX_WORKSPACE: self.close_connection = True; return self.reply(413, {"error": "workspace too large"})
+            match = re.fullmatch(r'"(\d+)"', self.headers.get("If-Match", ""))
+            if not match: self.close_connection = True; return self.reply(428, {"error": "If-Match revision required"})
+            payload = json.loads(self.rfile.read(length))
+            result = self.server.workspace.save(payload, int(match.group(1)))
+        except RevisionConflict: return self.reply(409, {"error": "revision conflict"})
+        except (ValueError, KeyError, TypeError, RecursionError): return self.reply(400, {"error": "invalid workspace"})
+        except sqlite3.Error: return self.reply(503, {"error": "storage unavailable"})
+        return self.reply(200, result)
     def do_GET(self):
+        if self.path == "/v1/workspace":
+            if not self.sync_authorized(): return
+            try: return self.reply(200, self.server.workspace.fetch())
+            except sqlite3.Error: return self.reply(503, {"error": "storage unavailable"})
         authorization = self.headers.get("Authorization", "")
-        if not hmac.compare_digest(authorization, "Bearer " + self.server.read_token): return self.reply(401, {"error": "unauthorized"})
+        if not hmac.compare_digest(authorization.encode(), ("Bearer " + self.server.read_token).encode()): return self.reply(401, {"error": "unauthorized"})
         match = re.fullmatch(r"/v1/projects/([0-9a-fA-F-]+)/services/([0-9a-fA-F-]+)/evidence", self.path)
         if not match: return self.reply(404, {"error": "not found"})
         try: key = tuple(canonical_uuid(item) for item in match.groups())
@@ -133,7 +169,25 @@ class RelayHandler(BaseHTTPRequestHandler):
         result = self.server.store.evidence(*key)
         if result is None: return self.reply(404, {"error": "no monitoring evidence"})
         return self.reply(200, result)
+    def do_DELETE(self):
+        if not self.path.startswith("/v1/devices/"): return self.reply(404,{"error":"not found"})
+        if not self.device_authorized(): return
+        try: self.server.push.unregister(self.path.rsplit("/",1)[1])
+        except ValueError: return self.reply(400,{"error":"invalid device"})
+        return self.reply(200,{"removed":True})
+    def device_authorized(self):
+        if not self.server.device_token or self.server.push_sender is None: self.reply(503,{"error":"APNs is not configured"}); return False
+        if not hmac.compare_digest(self.headers.get("Authorization", "").encode(),("Bearer "+self.server.device_token).encode()): self.reply(401,{"error":"unauthorized"}); return False
+        return True
     def do_POST(self):
+        if self.path == "/v1/devices":
+            if not self.device_authorized(): self.close_connection=True; return
+            try:
+                length=int(self.headers.get("Content-Length","-1"))
+                if self.headers.get("Transfer-Encoding") is not None or not 0<length<=8192 or self.headers.get_content_type()!="application/json": raise ValueError()
+                self.server.push.register(json.loads(self.rfile.read(length)))
+            except (ValueError,KeyError,TypeError): self.close_connection=True; return self.reply(400,{"error":"invalid registration"})
+            return self.reply(200,{"registered":True})
         if self.path != "/v1/events": self.close_connection = True; return self.reply(404, {"error": "not found"})
         if self.headers.get("Transfer-Encoding") is not None: self.close_connection = True; return self.reply(400, {"error": "chunked bodies are not accepted"})
         try: length = int(self.headers.get("Content-Length", "-1"))
@@ -165,15 +219,20 @@ def check_target(target, now):
     request = urllib.request.Request(target["endpoint"], headers=headers)
     opener = urllib.request.build_opener(NoRedirects())
     try:
-        with opener.open(request, timeout=target.get("timeoutSeconds", 15)) as response: status = response.status
+        with opener.open(request, timeout=target.get("timeoutSeconds", 15)) as response:
+            status = response.status
+            marker = target.get("requiredBodyText", "")
+            if marker:
+                data = response.read(1024 * 1024 + 1)
+                if len(data)>1024*1024 or marker not in data.decode("utf-8", errors="replace"): return "error", "Required response text was missing"
     except urllib.error.HTTPError as error: status = error.code
     except (urllib.error.URLError, OSError, ValueError): return "unknown", "Monitor could not establish a verified connection"
-    if 200 <= status < 300: return "healthy", f"HTTPS health check returned HTTP {status}"
+    if status == target.get("expectedHTTPStatus", 200): return "healthy", f"HTTPS health criteria passed (HTTP {status})"
     if status in {401, 403}: return "needsHelp", "Endpoint authentication requires attention"
     if status == 429: return "unknown", "Endpoint rate limited the monitor"
     return ("down" if target.get("critical", True) and status >= 500 else "error"), f"HTTPS health check returned HTTP {status}"
 
-def scheduler(store, targets, stop):
+def scheduler(store, targets, stop, push=None, sender=None):
     due = {}
     while not stop.is_set():
         for target in targets:
@@ -200,6 +259,11 @@ def load_configuration(path):
         if service.get("endpoint"):
             url = urllib.parse.urlsplit(service["endpoint"])
             if url.scheme != "https" or not url.hostname or url.username or url.password or url.fragment: raise ValidationError("Checks require HTTPS endpoints without embedded credentials")
+            expected=service.get("expectedHTTPStatus",200)
+            if isinstance(expected,bool) or not isinstance(expected,int) or not 200<=expected<=299:raise ValidationError("Invalid expected HTTP status")
+            if not isinstance(service.get("requiredBodyText",""),str):raise ValidationError("Invalid response criterion")
+            expiry=service.get("evidenceExpirySeconds",600)
+            if isinstance(expiry,bool) or not isinstance(expiry,int) or not 60<=expiry<=604800:raise ValidationError("Invalid evidence expiry")
             interval = service.get("intervalSeconds", 300); timeout = service.get("timeoutSeconds", 15)
             if isinstance(interval, bool) or not isinstance(interval, int) or not 60 <= interval <= 86400: raise ValidationError("Invalid check interval")
             if isinstance(timeout, bool) or not isinstance(timeout, int) or not 5 <= timeout <= 60: raise ValidationError("Invalid timeout")
@@ -215,8 +279,21 @@ def main():
     if min(len(read_token), len(write_secret)) < 32 or hmac.compare_digest(read_token, write_secret): parser.error("Set distinct HQ_READ_TOKEN and HQ_WRITE_SECRET values, each at least 32 characters")
     allowed, targets = load_configuration(args.config)
     store = EventStore(args.database); stop = threading.Event()
-    server = RelayServer((args.host, args.port), store, allowed, read_token, write_secret)
-    worker = threading.Thread(target=scheduler, args=(store, targets, stop), daemon=True); worker.start()
+    sync_token = os.environ.get("HQ_SYNC_TOKEN")
+    if sync_token and (len(sync_token) < 32 or sync_token in {read_token, write_secret}): parser.error("HQ_SYNC_TOKEN must be distinct and at least 32 characters")
+    device_token=os.environ.get("HQ_DEVICE_TOKEN")
+    if device_token and (len(device_token)<32 or device_token in {read_token,write_secret,sync_token}): parser.error("HQ_DEVICE_TOKEN must be distinct and at least 32 characters")
+    sender=APNsSender.configured()
+    server = RelayServer((args.host, args.port), store, allowed, read_token, write_secret, sync_token=sync_token,device_token=device_token,push_sender=sender)
+    for item in json.loads(Path(args.config).read_text()).get("services",[]):
+        store.service_expiries[(canonical_uuid(item["projectID"]),canonical_uuid(item["serviceID"]))] = max(60,min(604800,int(item.get("evidenceExpirySeconds",600))))
+    def deliver_pushes():
+        while not stop.is_set():
+            try: server.push.deliver(sender,time.time())
+            except sqlite3.Error: LOG.error("push storage unavailable")
+            stop.wait(1)
+    threading.Thread(target=deliver_pushes,daemon=True).start()
+    worker = threading.Thread(target=scheduler, args=(store, targets, stop, server.push, sender), daemon=True); worker.start()
     def shutdown(signum, frame): stop.set(); threading.Thread(target=server.shutdown, daemon=True).start()
     signal.signal(signal.SIGTERM, shutdown); signal.signal(signal.SIGINT, shutdown)
     logging.basicConfig(level=logging.INFO)
