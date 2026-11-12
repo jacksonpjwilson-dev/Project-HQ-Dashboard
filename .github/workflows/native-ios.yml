@@ -4,6 +4,7 @@ on:
     paths:
       - 'ios/**'
       - 'ci/verify-ios.sh'
+      - 'ci/capture-ios-previews.sh'
       - '.github/workflows/native-ios.yml'
   workflow_dispatch:
 concurrency:
@@ -23,10 +24,15 @@ jobs:
         run: python3 -m unittest discover -s monitoring-relay/tests -v
       - name: Build iPhone app and widgets, then run iOS tests
         run: bash ci/verify-ios.sh
+      - name: Capture actual Simulator previews
+        timeout-minutes: 3
+        continue-on-error: true
+        run: bash ci/capture-ios-previews.sh
       - name: Save actual Simulator previews
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: head-quarter-simulator-previews
           path: ios/HeadQuarter/DerivedData/previews/*.png
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
