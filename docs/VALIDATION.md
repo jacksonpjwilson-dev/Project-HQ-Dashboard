@@ -1,9 +1,11 @@
 # Head Quarter validation
 
+This is a chronological validation record. The **Continued development** section supersedes the earlier startup-stall and pending-test notes. Earlier counts describe earlier commits, not the current suite.
+
 Implementation branch: `codex/native-head-quarter`.
 Existing base: `659b57aecd80a02c3b61bc38632c663079d21325`.
 
-This workspace is Debian Linux. Xcode, the iOS SDK, Simulator, and watchOS are not installed. A Swift 6.0.3 Linux toolchain was installed temporarily outside the repository to compile and execute the exact portable production sources, not a translated test model. No third-party runtime package is required by the app or relay.
+This workspace is Debian Linux. Xcode, the iOS SDK, Simulator, and watchOS are not installed. A Swift 6.0.3 Linux toolchain was installed temporarily outside the repository to compile and execute the exact portable production sources, not a translated test model. The native app and core relay use no third-party runtime packages; optional APNs provider delivery requires the documented HTTP/2 and JWT packages.
 
 Local results on 2026-11-11:
 
@@ -68,8 +70,18 @@ Local follow-up verification on 2026-11-12:
 - Python relay/Codex/push/feed suite: **41 tests, zero failures** in the final local rerun. Real loopback TLS/HMAC/CAS is exercised with labeled Codex fixtures. APNs ES256 signing uses a generated test key and a mocked HTTP/2 Apple transport.
 - Installed Codex CLI `0.167.0-alpha.4` generated its actual app-server JSON schemas successfully; the required fields for the three supported notification types were checked and captured in `integrations/codex/protocol-contract.json`. No authenticated live Codex thread was connected.
 
-The final account/endpoint guards, Watch payload budget, feed freshness additions, and extra tests require the final native rerun. Exact final revision/result will be recorded after that workflow completes. A real iCloud account, paired Watch, APNs delivery, arbitrary Codex desktop/cloud-session access, and production relay deployment are **not** established by these tests.
+Final source revision `9d25d31db707eada9f352d3ef7e7b9c036dbd1b3` passed [native run 43299073398](https://github.com/jacksonpjwilson-dev/Project-HQ-Dashboard/actions/runs/43299073398) on 2026-11-12:
+
+- Watch, iPhone, and WidgetKit builds: **BUILD SUCCEEDED** for all three.
+- iPhone Simulator XCTest: **89 cases, one explicitly skipped live-network test, zero failures; TEST SUCCEEDED**.
+- Portable Swift on macOS: **77 cases, one explicit live-network skip, zero failures**.
+- Python relay/Codex/push/feed tests with optional APNs signing dependencies installed: **41 tests, zero failures, no skips**.
+- Actual Simulator preview capture and upload: succeeded; artifact `head-quarter-simulator-previews`, ID `13979974827` (14-day retention).
+- Original web CI: **PASS**, [run 43299073518](https://github.com/jacksonpjwilson-dev/Project-HQ-Dashboard/actions/runs/43299073518). Original web files and workflow remain unchanged against the repository base.
+- Final local property-list, entitlement, privacy manifest, scheme, and integration JSON validation: **13 files passed**; original smoke plus integration JSON checks: **eight checks, zero failures**.
+
+This final run includes the account/endpoint guards, Watch payload budget, feed freshness additions, and extra regression tests. The one network test is deliberately opt-in; its real production GitHub read passed separately as recorded above. A real iCloud account, paired Watch, APNs delivery, arbitrary Codex desktop/cloud-session access, and production relay deployment are **not** established by these tests.
 
 ### Nonfatal App Intents SDK diagnostic
 
-Xcode 16.4's `appintentsnltrainingprocessor` reported `Unable to parse extract.actionsdata` while processing dependency metadata in the first expanded iPhone build. It continued to train all six Head Quarter phrases, generated/copied their SSU YAML, archived the en locale, and returned a successful build. This diagnostic is not hidden or treated as successful Siri/Spotlight device acceptance. The owner must verify those interfaces on a signed device; SDK-specific metadata behavior remains an open acceptance item.
+Xcode 16.4's `appintentsnltrainingprocessor` reported `Unable to parse extract.actionsdata` while processing dependency metadata in both expanded iPhone builds, including the final source validation. It continued to train all six Head Quarter phrases, generated/copied their SSU YAML, archived the en locale, and returned a successful build. This diagnostic is not hidden or treated as successful Siri/Spotlight device acceptance. The owner must verify those interfaces on a signed device; SDK-specific metadata behavior remains an open acceptance item.
