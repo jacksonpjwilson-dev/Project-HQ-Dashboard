@@ -1,0 +1,3 @@
+# Optional: only needed when APNs is configured on the private relay.
+httpx[http2]>=0.28,<1
+PyJWT[crypto]>=2.10,<3

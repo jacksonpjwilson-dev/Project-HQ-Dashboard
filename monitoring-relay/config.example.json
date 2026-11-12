@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "services": [
+    {
+      "projectID": "00000000-0000-0000-0000-000000000001",
+      "serviceID": "00000000-0000-0000-0000-000000000002",
+      "endpoint": "https://example.com/health",
+      "intervalSeconds": 300,
+      "timeoutSeconds": 15,
+      "critical": true
+    }
+  ]
+}
