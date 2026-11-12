@@ -63,7 +63,7 @@ struct HealthResult: Equatable, Sendable {
     var explanation: String
     var observedAt: Date?
 }
-struct ServiceReading: Sendable {
+struct ServiceReading: Codable, Sendable {
     var name: String
     var critical: Bool
     var expiry: TimeInterval
@@ -123,7 +123,10 @@ struct ProjectSnapshot: Codable, Identifiable, Sendable {
     var alerts: Int
     var evidenceAt: Date?
     var validUntil: Date?
+    var readings: [ServiceReading]? = nil
+    var requireAllChecks: Bool? = nil
     func currentHealth(at date: Date) -> Health {
+        if let readings { return HealthEngine.aggregate(readings, now: date, requireAll: requireAllChecks ?? true).state }
         guard let validUntil, date <= validUntil else { return .unknown }
         return health
     }

@@ -64,13 +64,15 @@ struct ProjectsView: View {
     }
     var body: some View {
         @Bindable var store = store
+        TimelineView(.periodic(from: .now, by: 30)) { timeline in
         ScrollView {
             LazyVStack(spacing: 14) {
                 if store.showOnlyHelp { HStack { Text("Projects requiring help"); Spacer(); Button("Clear") { store.showOnlyHelp = false } }.font(.subheadline).padding() }
                 if filtered.isEmpty { ContentUnavailableView.search(text: search) }
-                ForEach(filtered) { project in NavigationLink(value: project.id) { ProjectCard(project: project, now: .now) }.buttonStyle(.plain) }
+                ForEach(filtered) { project in NavigationLink(value: project.id) { ProjectCard(project: project, now: timeline.date) }.buttonStyle(.plain) }
             }.padding()
         }.background(Color(uiColor: .systemGroupedBackground))
+        }
         .navigationTitle("Projects").searchable(text: $search)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {

@@ -175,3 +175,29 @@ final class EndpointCriteriaTests: XCTestCase {
         XCTAssertTrue(DependencyEngine.hasCycle(graph))
     }
 }
+
+final class ComponentSnapshotTests: XCTestCase {
+    private let now = Date(timeIntervalSince1970: 1_800_000_000)
+    private func reading(_ state: Health, expiry: Double) -> ServiceReading {
+        .init(name: state.rawValue, critical: true, expiry: expiry, evidence: .init(state: state, explanation: "Verified result", observedAt: now, source: "Monitor"))
+    }
+    private func snapshot(_ readings: [ServiceReading], requireAll: Bool = true) -> ProjectSnapshot {
+        .init(id: UUID(), name: "Project", health: .healthy, progress: 0, alerts: 0, evidenceAt: now, validUntil: now.addingTimeInterval(60), readings: readings, requireAllChecks: requireAll)
+    }
+    func testExpiredPassingCheckDoesNotHideFreshCriticalFailure() {
+        let value = snapshot([reading(.healthy, expiry: 60), reading(.down, expiry: 600)])
+        XCTAssertEqual(value.currentHealth(at: now.addingTimeInterval(61)), .down)
+    }
+    func testExpiryRevealsRemainingFreshLowerSeverityEvidence() {
+        let value = snapshot([reading(.down, expiry: 60), reading(.error, expiry: 600)])
+        XCTAssertEqual(value.currentHealth(at: now.addingTimeInterval(61)), .error)
+    }
+    func testAllExpiredComponentsAreUnknown() {
+        let value = snapshot([reading(.healthy, expiry: 60), reading(.error, expiry: 60)])
+        XCTAssertEqual(value.currentHealth(at: now.addingTimeInterval(61)), .unknown)
+    }
+    func testSnapshotPreservesExplicitPartialCoverageRule() {
+        let value = snapshot([reading(.unknown, expiry: 60), reading(.healthy, expiry: 600)], requireAll: false)
+        XCTAssertEqual(value.currentHealth(at: now.addingTimeInterval(61)), .healthy)
+    }
+}

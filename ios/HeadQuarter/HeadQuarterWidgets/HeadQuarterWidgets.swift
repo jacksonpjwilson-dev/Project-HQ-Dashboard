@@ -43,7 +43,8 @@ struct DashboardProvider: AppIntentTimelineProvider {
     }
     func timeline(for configuration: DashboardConfiguration, in context: Context) async -> Timeline<DashboardEntry> {
         let snapshot = SharedStorage.load(), now = Date.now
-        let expirations = snapshot.projects.compactMap(\.validUntil).filter { $0 > now && $0 < now.addingTimeInterval(4 * 3600) }.map { $0.addingTimeInterval(1) }
+        let componentExpirations = snapshot.projects.flatMap { $0.readings ?? [] }.compactMap { reading in reading.evidence.map { $0.observedAt.addingTimeInterval(max(60, reading.expiry)) } }
+        let expirations = (snapshot.projects.compactMap(\.validUntil) + componentExpirations).filter { $0 > now && $0 < now.addingTimeInterval(4 * 3600) }.map { $0.addingTimeInterval(1) }
         let dates = [now] + Array(Set(expirations)).sorted()
         let entries = dates.map { DashboardEntry(date: $0, snapshot: snapshot, selected: configuration.projects?.map(\.id) ?? []) }
         return Timeline(entries: entries, policy: .after(now.addingTimeInterval(15 * 60)))

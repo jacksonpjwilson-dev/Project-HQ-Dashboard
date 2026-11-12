@@ -35,7 +35,8 @@ import Observation
             let health = project.health(at: now)
             let validUntil = project.services.compactMap { service in service.evidence.map { $0.observedAt.addingTimeInterval(max(60, service.expiry)) } }.min()
             return ProjectSnapshot(id: project.id, name: project.name, health: health.state, progress: project.progress,
-                alerts: project.activeIncidents.count, evidenceAt: health.observedAt, validUntil: validUntil)
+                alerts: project.activeIncidents.count, evidenceAt: health.observedAt, validUntil: validUntil,
+                readings: project.services.map(\.reading), requireAllChecks: project.requireAllChecks)
         })
         snapshot.overallProgress = ProgressEngine.completion(projects.flatMap(\.tasks).map { .init(weight: $0.weight, completed: $0.status == .completed) })
         do { try SharedStorage.save(snapshot); WidgetCenter.shared.reloadAllTimelines() }
