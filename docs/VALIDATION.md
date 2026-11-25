@@ -2,6 +2,14 @@
 
 This is a chronological validation record. The **Continued development** section supersedes the earlier startup-stall and pending-test notes. Earlier counts describe earlier commits, not the current suite.
 
+## Physical development installation on 2026-11-25
+
+Local process execution recovered. Xcode 27.2 built the signed Debug iPhone app, embedded widget extension, and Watch companion using existing Apple Developer team `7HL7Y5SP24`. Initial app and widget profiles had empty App Group lists. Selecting the existing team in each target's Signing & Capabilities editor refreshed provisioning for `group.com.headquarter.app`. Application source and entitlements were preserved.
+
+The USB-connected iPhone 16 Plus, “Bluetoof Device (2)”, paired successfully. Head Quarter `com.headquarter.app` installed and launched in the foreground. The reusable `python3 ci/deploy-iphone.py` command then passed the same build/install/launch workflow end to end. Its launched process, PID 27150, remained present after 15 seconds. This establishes successful installation and an initial process survival check. Visual UI acceptance, sustained runtime behavior, and integration acceptance remain for evaluation on the phone.
+
+Logs and device command JSON results are under `ios/HeadQuarter/DerivedData/physical-deployment`. No simulator QA was required for this development installation.
+
 Implementation branch: `codex/native-head-quarter`.
 Existing base: `659b57aecd80a02c3b61bc38632c663079d21325`.
 

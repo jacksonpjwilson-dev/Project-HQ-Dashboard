@@ -14,6 +14,20 @@ Development continues in [Draft PR #1](https://github.com/jacksonpjwilson-dev/Pr
 
 The checked-in Xcode project opens directly. Regenerate after adding source files with `python3 ios/HeadQuarter/tools/generate_project.py`. The generator uses only Python's standard library. Keep owned signing settings in your local build configuration when regenerating the sample project.
 
+### Install a Debug update on a physical iPhone
+
+Connect and unlock the iPhone, accept the Mac trust prompt if shown, and run from the repository root:
+
+```sh
+python3 ci/deploy-iphone.py
+```
+
+The script uses Xcode automatic signing with the existing development team `7HL7Y5SP24`, pairs the selected phone, builds the app and its embedded widget and Watch targets, installs the Debug app, and launches it. It checks that the launched process remains alive after 15 seconds. Evaluate the visible interface on the phone separately.
+
+Set `HQ_DEVICE_UDID` to select a phone when multiple iPhones are connected. Override `HQ_DEVELOPMENT_TEAM` for a different authorized team. Build and deployment evidence is saved under `ios/HeadQuarter/DerivedData/physical-deployment`, with signed products under `DerivedData/PhysicalDevice`. Override those locations with `HQ_DEPLOY_RESULTS` and `HQ_DEVICE_DERIVED_DATA`.
+
+Xcode must have an authenticated developer account and access to the development signing key. Both the app and widget provisioning profiles must include `group.com.headquarter.app`. If profiles have an empty App Groups entitlement, select the existing team for each target in Xcode's Signing & Capabilities editor and let Xcode refresh the profiles before retrying.
+
 ## Implemented functionality
 
 | Area | Behavior |
