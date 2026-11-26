@@ -7,6 +7,7 @@ import UserNotifications
     @State private var store: AppStore?
     @State private var launchError: String?
     @State private var pendingURL: URL?
+    @State private var showingOpening = true
     var body: some Scene {
         WindowGroup {
             Group {
@@ -18,6 +19,17 @@ import UserNotifications
                     actions: { Button("Try again") { openWorkspace() } }
                 } else { ProgressView("Opening Head Quarter…").task { openWorkspace() } }
             }
+            .overlay {
+                if showingOpening {
+                    OpeningAnimationView {
+                        withAnimation(.easeOut(duration: 0.2)) { showingOpening = false }
+                    }
+                    .ignoresSafeArea()
+                    .transition(.opacity)
+                    .zIndex(1)
+                }
+            }
+            .statusBarHidden(showingOpening)
             .onOpenURL { url in if let store { store.route(url) } else { pendingURL = url } }
         }
     }

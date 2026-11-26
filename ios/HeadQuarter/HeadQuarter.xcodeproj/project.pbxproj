@@ -101,6 +101,12 @@
 			"path" = "HeadQuarter/Views/MonitoringSetupView.swift";
 			"sourceTree" = "SOURCE_ROOT";
 		};
+		"A6C2FD15754B4F062DDE3F13" = {
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "sourcecode.swift";
+			"path" = "HeadQuarter/Views/OpeningAnimationView.swift";
+			"sourceTree" = "SOURCE_ROOT";
+		};
 		"FB58CCFF34F6407510315421" = {
 			"isa" = "PBXFileReference";
 			"lastKnownFileType" = "sourcecode.swift";
@@ -245,6 +251,18 @@
 			"path" = "HeadQuarter/Assets.xcassets";
 			"sourceTree" = "SOURCE_ROOT";
 		};
+		"484F9AE8C2B0B859F0565DFD" = {
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "video.mp4";
+			"path" = "HeadQuarter/Resources/Opening.mp4";
+			"sourceTree" = "SOURCE_ROOT";
+		};
+		"73CC33203C6F09E581D3DEEC" = {
+			"isa" = "PBXFileReference";
+			"lastKnownFileType" = "file.storyboard";
+			"path" = "HeadQuarter/Resources/LaunchScreen.storyboard";
+			"sourceTree" = "SOURCE_ROOT";
+		};
 		"83584A6BE759B9820B7CCDBC" = {
 			"isa" = "PBXFileReference";
 			"lastKnownFileType" = "text.xml";
@@ -330,6 +348,7 @@
 				"9E126C2732AAA3D5B732C584",
 				"E6AD62B7B8D56AABDB53CC63",
 				"87A89BB750EA4507AA6AEF8A",
+				"A6C2FD15754B4F062DDE3F13",
 				"FB58CCFF34F6407510315421",
 				"1A4004DD5B9C98E5D225735C",
 				"01812D222BFB17092EFA9B4F",
@@ -341,6 +360,8 @@
 				"37941946A7D21502C0EC2463",
 				"C0DE400976B4F416154ED327",
 				"14D5DCF2DD71287DBBEC2869",
+				"484F9AE8C2B0B859F0565DFD",
+				"73CC33203C6F09E581D3DEEC",
 				"D208BFEFC5E3BB847D99DFD9",
 				"C71E64D557D6537CCC5CC8F6",
 			);
@@ -552,6 +573,10 @@
 			"isa" = "PBXBuildFile";
 			"fileRef" = "87A89BB750EA4507AA6AEF8A";
 		};
+		"F4A4352B5AD0E1E5C2989D00" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "A6C2FD15754B4F062DDE3F13";
+		};
 		"7F49822BC3E56938FA8964BD" = {
 			"isa" = "PBXBuildFile";
 			"fileRef" = "FB58CCFF34F6407510315421";
@@ -636,6 +661,7 @@
 				"DFC64DD1DAB638F856373A88",
 				"AD2DA0F10F369DC227CD2ADF",
 				"76CA1DC807057B1A2625DCEF",
+				"F4A4352B5AD0E1E5C2989D00",
 				"7F49822BC3E56938FA8964BD",
 				"3464A4616D5D9F3A7807CDC0",
 				"D2E651892B9DD3FC7BA5165E",
@@ -670,12 +696,22 @@
 			"isa" = "PBXBuildFile";
 			"fileRef" = "14D5DCF2DD71287DBBEC2869";
 		};
+		"AF382C97B9529A834508AD16" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "484F9AE8C2B0B859F0565DFD";
+		};
+		"D7F788D84274C81664E501D0" = {
+			"isa" = "PBXBuildFile";
+			"fileRef" = "73CC33203C6F09E581D3DEEC";
+		};
 		"BB9276B29868FA6090D56EB3" = {
 			"isa" = "PBXResourcesBuildPhase";
 			"buildActionMask" = 2147483647;
 			"files" = (
 				"18228B2D4396FE2C9ED4B2D6",
 				"E093245A1D287193B3E2ADB0",
+				"AF382C97B9529A834508AD16",
+				"D7F788D84274C81664E501D0",
 			);
 			"runOnlyForDeploymentPostprocessing" = 0;
 		};
@@ -999,8 +1035,6 @@
 			"name" = "Apple Watch";
 			"children" = (
 				"876612C7080C64880EAB098A",
-				"8EAD9659B6DE5EFDB8B08D54",
-				"8C4E716D2D41722BE02D2C98",
 			);
 			"sourceTree" = "<group>";
 		};

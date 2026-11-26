@@ -25,8 +25,20 @@ test_sources = sorted(str(p.relative_to(ROOT)) for p in ROOT.glob('HeadQuarterTe
 refs.update({p:file(p,'sourcecode.swift') for p in test_sources})
 resources = {}
 for target in ['HeadQuarter','HeadQuarterWidgets']:
-    paths_for_target=[target+'/PrivacyInfo.xcprivacy'] + (['HeadQuarter/Assets.xcassets'] if target=='HeadQuarter' else [])
-    resources[target] = [file(p,'folder.assetcatalog' if p.endswith('xcassets') else 'text.xml') for p in paths_for_target]
+    paths_for_target = [target + '/PrivacyInfo.xcprivacy']
+    if target == 'HeadQuarter':
+        paths_for_target += [
+            'HeadQuarter/Assets.xcassets',
+            'HeadQuarter/Resources/Opening.mp4',
+            'HeadQuarter/Resources/LaunchScreen.storyboard',
+        ]
+    resource_types = {
+        '.xcassets': 'folder.assetcatalog',
+        '.storyboard': 'file.storyboard',
+        '.mp4': 'video.mp4',
+        '.xcprivacy': 'text.xml',
+    }
+    resources[target] = [file(path, resource_types[Path(path).suffix]) for path in paths_for_target]
 configs = []
 for target in ['HeadQuarter','HeadQuarterWidgets']:
     configs.extend([file(target+'/Info.plist','text.plist.xml'), file(target+'/'+target+'.entitlements','text.plist.entitlements')])
@@ -74,7 +86,8 @@ watch_paths = ['HeadQuarterWatch/HeadQuarterWatchApp.swift', 'Shared/Domain.swif
 watch_refs = {path: refs.get(path) or file(path, 'sourcecode.swift') for path in watch_paths}
 watch_product = add('product:HeadQuarterWatch','PBXFileReference',explicitFileType='wrapper.application',includeInIndex=0,path='HeadQuarterWatch.app',sourceTree='BUILT_PRODUCTS_DIR')
 objects[products_group]['children'].append(watch_product)
-objects[main_group]['children'].append(group('Apple Watch',list(watch_refs.values())))
+# Shared sources already belong to the Shared navigator group.
+objects[main_group]['children'].append(group('Apple Watch', [ref for path, ref in watch_refs.items() if path.startswith('HeadQuarterWatch/')]))
 watch_settings = dict(common,SDKROOT='watchos',SUPPORTED_PLATFORMS='watchos watchsimulator',WATCHOS_DEPLOYMENT_TARGET='10.0',TARGETED_DEVICE_FAMILY='4',PRODUCT_BUNDLE_IDENTIFIER='com.headquarter.app.watchkitapp',PRODUCT_NAME='$(TARGET_NAME)',INFOPLIST_FILE='HeadQuarterWatch/Info.plist',SKIP_INSTALL='YES',LD_RUNPATH_SEARCH_PATHS=['$(inherited)','@executable_path/Frameworks'])
 add('target:HeadQuarterWatch','PBXNativeTarget',buildConfigurationList=config_list('HeadQuarterWatch',watch_settings),buildPhases=[phase('HeadQuarterWatch','PBXSourcesBuildPhase',[build_file('HeadQuarterWatch',ref) for ref in watch_refs.values()]),phase('HeadQuarterWatch','PBXFrameworksBuildPhase',[]),phase('HeadQuarterWatch','PBXResourcesBuildPhase',[build_file('HeadQuarterWatch',file('HeadQuarterWatch/PrivacyInfo.xcprivacy','text.xml'))])],buildRules=[],dependencies=[],name='HeadQuarterWatch',productName='HeadQuarterWatch',productReference=watch_product,productType='com.apple.product-type.application')
 watch_proxy=add('proxy:watch','PBXContainerItemProxy',containerPortal=project_id,proxyType=1,remoteGlobalIDString=watch_id,remoteInfo='HeadQuarterWatch')

@@ -2,6 +2,23 @@
 
 This is a chronological validation record. The **Continued development** section supersedes the earlier startup-stall and pending-test notes. Earlier counts describe earlier commits, not the current suite.
 
+## Approved icon and opening animation installed on 2026-11-25
+
+The supplied portrait artwork is preserved byte-for-byte at `assets/approved/HeadQuarter-original.png`. Its opaque 1024 × 1024 app icon preserves the full composition and aspect ratio, with the dark edge background extended to the square corners. The supplied MP4 is bundled unchanged at `HeadQuarter/Resources/Opening.mp4`, with a 720 × 1280 video track and a 3.041667-second duration. Its SHA-256 is `265a7fb1785b972a25379c5bb2ce1d056742bf35e4f1281c44b76f520c42ec7a`.
+
+A first-frame native launch storyboard matches the playback poster. An aspect-fit player preserves the entire video over a matching background derived from its first frame. The opening overlay runs once per app process, fades out at playback completion, and falls through on missing media, decoder failure, or a first-frame startup timeout. Background returns retain the dismissed state. Existing interface, navigation, widgets, persistence, and integrations are preserved.
+
+Validation completed on 2026-11-25 and 2026-11-26.
+
+- Signed Debug compilation and the existing `python3 ci/deploy-iphone.py` installation workflow passed on the iPhone 16 Plus with `com.headquarter.app` and the existing signing team. The final deployment's launched process remained alive after 15 seconds.
+- The final signed bundle contains the exact MP4, compiled launch storyboard, and new AppIcon metadata. The decoded compiled icon was visually inspected. Icon dimensions, opacity, asset JSON, property list, resource membership, and deterministic project regeneration checks passed.
+- Physical screenshots show the supplied opening animation and the subsequent existing Overview interface. A background/foreground check on 2026-11-26 retained process 33948 and opened the Tasks deep link without replaying the opening animation.
+- Physical screen recording is unsupported on this device. CoreDevice returned error 1001 for `com.apple.coredevice.feature.screenrecording`. Screenshots provide visual evidence, while frame-perfect timing and flash-free transitions require direct visual acceptance.
+- The Simulator app and test bundle compiled, but Simulator data migration failed and XCTest stalled before reporting any cases. That invocation was interrupted. No Simulator test pass is claimed for this revision.
+- AGENTS.md already requires validation, automatic physical deployment after application changes, launch verification, commit, push, and explicit pending-deployment reporting.
+
+Local screenshots and logs are under `ios/HeadQuarter/DerivedData/artwork-validation` and remain excluded from Git.
+
 ## Physical development installation on 2026-11-25
 
 Local process execution recovered. Xcode 27.2 built the signed Debug iPhone app, embedded widget extension, and Watch companion using existing Apple Developer team `7HL7Y5SP24`. Initial app and widget profiles had empty App Group lists. Selecting the existing team in each target's Signing & Capabilities editor refreshed provisioning for `group.com.headquarter.app`. Application source and entitlements were preserved.
