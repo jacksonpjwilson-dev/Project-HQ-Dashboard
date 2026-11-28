@@ -1,0 +1,1283 @@
+[
+  {
+    "id": "crew",
+    "name": "Crew",
+    "aliases": [],
+    "asset": "BrandCrew",
+    "theme": "crew",
+    "summary": "AI organization & automation",
+    "repository": "jacksonpjwilson-dev/crew-map",
+    "nodes": [
+      {
+        "id": "crew.app",
+        "title": "Crew",
+        "kind": "application",
+        "owner": "Native application",
+        "purpose": "AI organization & automation",
+        "source": "ios/Crew/Store.swift",
+        "setup": "Connect a health-only reporting endpoint. HQ cannot inspect this app’s private runtime.",
+        "lane": 1,
+        "required": true
+      },
+      {
+        "id": "crew.storage",
+        "title": "Local storage",
+        "kind": "storage",
+        "owner": "Native persistence",
+        "purpose": "Durable local application data.",
+        "source": "ios/Crew/Store.swift",
+        "setup": "A persistence operation report from the owning app is required.",
+        "lane": 2,
+        "required": true
+      },
+      {
+        "id": "crew.roster",
+        "title": "Agent roster",
+        "kind": "source",
+        "owner": "Roster publisher",
+        "purpose": "Version-2 public organization and schedules.",
+        "source": "ios/CrewCore/Sources/CrewCore/Sync.swift",
+        "setup": "Public roster reads are automatic. A roster is not an execution heartbeat.",
+        "lane": 0,
+        "required": true
+      },
+      {
+        "id": "crew.activity",
+        "title": "Activity feed",
+        "kind": "source",
+        "owner": "Activity publisher",
+        "purpose": "Published dated interactions, with original timestamps.",
+        "source": "ios/CrewCore/Sources/CrewCore/Sync.swift",
+        "setup": "Public activity reads are automatic. Old publication is labelled stale.",
+        "lane": 0,
+        "required": true
+      },
+      {
+        "id": "crew.agents",
+        "title": "Grok agents",
+        "kind": "processor",
+        "owner": "Owning Grok client",
+        "purpose": "Remote execution, approvals, results and failures.",
+        "source": "ios/Crew/OperationalServices.swift",
+        "setup": "Provide an authorized server task/event API. Consumer chat access is unavailable.",
+        "lane": 0,
+        "required": true
+      },
+      {
+        "id": "crew.report",
+        "title": "HQ reporting",
+        "kind": "monitor",
+        "owner": "HeadquartersAdapter",
+        "purpose": "Health-only outbound reports.",
+        "source": "ios/Crew/HeadquartersAdapter.swift",
+        "setup": "Provision the approved HTTPS host and token in Crew. Its report format needs a relay adapter.",
+        "lane": 2,
+        "required": true
+      },
+      {
+        "id": "crew.observer",
+        "title": "HQ feed check",
+        "kind": "monitor",
+        "owner": "Headquarters",
+        "purpose": "Read-only checks from this device.",
+        "source": "ios/CrewCore/Sources/CrewCore/Sync.swift",
+        "setup": "Refresh in HQ. This verifies publication access and freshness, not Grok execution.",
+        "lane": 2,
+        "required": false
+      },
+      {
+        "id": "crew.github",
+        "title": "GitHub",
+        "kind": "development",
+        "owner": "Repository owner",
+        "purpose": "Source history and CI, separate from installed runtime health.",
+        "source": "jacksonpjwilson-dev/crew-map/.github/workflows",
+        "setup": "Add a GitHub service for jacksonpjwilson-dev/crew-map. Private access needs a read-only token in Keychain.",
+        "lane": 0,
+        "required": false
+      },
+      {
+        "id": "crew.build",
+        "title": "Build & deploy",
+        "kind": "development",
+        "owner": "GitHub Actions / Xcode",
+        "purpose": "Compilation and development installation.",
+        "source": "jacksonpjwilson-dev/crew-map",
+        "setup": "Connect the repository monitor. A build result does not prove the installed app is running.",
+        "lane": 1,
+        "required": false
+      }
+    ],
+    "edges": [
+      {
+        "id": "crew.app-storage",
+        "from": "crew.app",
+        "to": "crew.storage",
+        "operation": "Save",
+        "owner": "Native application",
+        "impact": "Local changes cannot be confirmed without persistence telemetry.",
+        "domain": "runtime"
+      },
+      {
+        "id": "crew.roster-app",
+        "from": "crew.roster",
+        "to": "crew.app",
+        "operation": "Read roster",
+        "owner": "Crew synchronizer",
+        "impact": "Missing or stale evidence limits operational visibility.",
+        "domain": "runtime"
+      },
+      {
+        "id": "crew.activity-app",
+        "from": "crew.activity",
+        "to": "crew.app",
+        "operation": "Read history",
+        "owner": "Crew synchronizer",
+        "impact": "Missing or stale evidence limits operational visibility.",
+        "domain": "runtime"
+      },
+      {
+        "id": "crew.agents-app",
+        "from": "crew.agents",
+        "to": "crew.app",
+        "operation": "Task events",
+        "owner": "AuthorizedOperations",
+        "impact": "Missing or stale evidence limits operational visibility.",
+        "domain": "runtime"
+      },
+      {
+        "id": "crew.app-report",
+        "from": "crew.app",
+        "to": "crew.report",
+        "operation": "Health report",
+        "owner": "HeadquartersAdapter",
+        "impact": "Missing or stale evidence limits operational visibility.",
+        "domain": "runtime"
+      },
+      {
+        "id": "crew.activity-observer",
+        "from": "crew.activity",
+        "to": "crew.observer",
+        "operation": "HQ read",
+        "owner": "Headquarters",
+        "impact": "Missing or stale evidence limits operational visibility.",
+        "domain": "runtime"
+      },
+      {
+        "id": "crew.roster-observer",
+        "from": "crew.roster",
+        "to": "crew.observer",
+        "operation": "HQ read",
+        "owner": "Headquarters",
+        "impact": "Missing or stale evidence limits operational visibility.",
+        "domain": "runtime"
+      },
+      {
+        "id": "crew.github-build",
+        "from": "crew.github",
+        "to": "crew.build",
+        "operation": "Build",
+        "owner": "GitHub Actions",
+        "impact": "Development delivery may be blocked; runtime availability remains separate.",
+        "domain": "development"
+      }
+    ]
+  },
+  {
+    "id": "logbook",
+    "name": "Logbook",
+    "aliases": [],
+    "asset": "BrandLogbook",
+    "theme": "logbook",
+    "summary": "Fitness, nutrition & recovery",
+    "repository": "jacksonpjwilson-dev/logbook-v2",
+    "nodes": [
+      {
+        "id": "logbook.app",
+        "title": "Logbook",
+        "kind": "application",
+        "owner": "Native application",
+        "purpose": "Fitness, nutrition & recovery",
+        "source": "native-ios/Sources/Logbook/LogbookStore.swift",
+        "setup": "Connect a health-only reporting endpoint. HQ cannot inspect this app’s private runtime.",
+        "lane": 1,
+        "required": true
+      },
+      {
+        "id": "logbook.storage",
+        "title": "Local storage",
+        "kind": "storage",
+        "owner": "Native persistence",
+        "purpose": "Durable local application data.",
+        "source": "native-ios/Sources/Logbook/LogbookStore.swift",
+        "setup": "A persistence operation report from the owning app is required.",
+        "lane": 2,
+        "required": true
+      },
+      {
+        "id": "logbook.entries",
+        "title": "Training & food",
+        "kind": "source",
+        "owner": "User / Logbook",
+        "purpose": "Training & food in the existing native app.",
+        "source": "native-ios/Sources/Logbook/FoodScreens.swift",
+        "setup": "Use health-only operation reports; do not export personal health records.",
+        "lane": 0,
+        "required": true
+      },
+      {
+        "id": "logbook.catalog",
+        "title": "Food catalogue",
+        "kind": "source",
+        "owner": "FoodCatalogService",
+        "purpose": "Food catalogue in the existing native app.",
+        "source": "native-ios/Sources/Logbook/FoodCatalogService.swift",
+        "setup": "Report catalogue request outcomes from Logbook.",
+        "lane": 0,
+        "required": true
+      },
+      {
+        "id": "logbook.watch",
+        "title": "Apple Watch",
+        "kind": "output",
+        "owner": "WatchBridge",
+        "purpose": "Apple Watch in the existing native app.",
+        "source": "native-ios/Sources/Logbook/WatchBridge.swift",
+        "setup": "Report paired delivery and acknowledgement outcomes from Logbook.",
+        "lane": 2,
+        "required": true
+      },
+      {
+        "id": "logbook.widgets",
+        "title": "Widgets & activities",
+        "kind": "output",
+        "owner": "SharedStateFile",
+        "purpose": "Widgets & activities in the existing native app.",
+        "source": "native-ios/Shared/SharedStateFile.swift",
+        "setup": "Report snapshot writes and ActivityKit outcomes from Logbook.",
+        "lane": 2,
+        "required": true
+      },
+      {
+        "id": "logbook.healthkit",
+        "title": "HealthKit",
+        "kind": "source",
+        "owner": "Owner policy",
+        "purpose": "Health access is intentionally absent.",
+        "source": "native-ios/README.md; AGENTS.md",
+        "setup": "Keep disabled unless the owner explicitly changes the HealthKit policy.",
+        "lane": 0,
+        "required": false,
+        "disabledReason": "Disabled by the owner. No HealthKit permission is requested."
+      },
+      {
+        "id": "logbook.github",
+        "title": "GitHub",
+        "kind": "development",
+        "owner": "Repository owner",
+        "purpose": "Source history and CI, separate from installed runtime health.",
+        "source": "jacksonpjwilson-dev/logbook-v2/.github/workflows",
+        "setup": "Add a GitHub service for jacksonpjwilson-dev/logbook-v2. Private access needs a read-only token in Keychain.",
+        "lane": 0,
+        "required": false
+      },
+      {
+        "id": "logbook.build",
+        "title": "Build & deploy",
+        "kind": "development",
+        "owner": "GitHub Actions / Xcode",
+        "purpose": "Compilation and development installation.",
+        "source": "jacksonpjwilson-dev/logbook-v2",
+        "setup": "Connect the repository monitor. A build result does not prove the installed app is running.",
+        "lane": 1,
+        "required": false
+      }
+    ],
+    "edges": [
+      {
+        "id": "logbook.app-storage",
+        "from": "logbook.app",
+        "to": "logbook.storage",
+        "operation": "Save",
+        "owner": "Native application",
+        "impact": "Local changes cannot be confirmed without persistence telemetry.",
+        "domain": "runtime"
+      },
+      {
+        "id": "logbook.entries-app",
+        "from": "logbook.entries",
+        "to": "logbook.app",
+        "operation": "Record",
+        "owner": "User",
+        "impact": "Manual entries stay local.",
+        "domain": "runtime"
+      },
+      {
+        "id": "logbook.catalog-app",
+        "from": "logbook.catalog",
+        "to": "logbook.app",
+        "operation": "Lookup",
+        "owner": "FoodCatalogService",
+        "impact": "Food lookups may be unavailable.",
+        "domain": "runtime"
+      },
+      {
+        "id": "logbook.storage-widgets",
+        "from": "logbook.storage",
+        "to": "logbook.widgets",
+        "operation": "Snapshot",
+        "owner": "SharedStateFile",
+        "impact": "Widget freshness is unverified.",
+        "domain": "runtime"
+      },
+      {
+        "id": "logbook.app-watch",
+        "from": "logbook.app",
+        "to": "logbook.watch",
+        "operation": "Snapshot",
+        "owner": "WatchBridge",
+        "impact": "Watch delivery is unverified.",
+        "domain": "runtime"
+      },
+      {
+        "id": "logbook.healthkit-app",
+        "from": "logbook.healthkit",
+        "to": "logbook.app",
+        "operation": "Disabled",
+        "owner": "Owner policy",
+        "impact": "Manual tracking remains available.",
+        "domain": "runtime"
+      },
+      {
+        "id": "logbook.github-build",
+        "from": "logbook.github",
+        "to": "logbook.build",
+        "operation": "Build",
+        "owner": "GitHub Actions",
+        "impact": "Development delivery may be blocked; runtime availability remains separate.",
+        "domain": "development"
+      }
+    ]
+  },
+  {
+    "id": "hq",
+    "name": "Headquarters",
+    "aliases": [
+      "Head Quarter"
+    ],
+    "asset": "BrandHeadquarters",
+    "theme": "hq",
+    "summary": "Ecosystem monitoring & operations",
+    "repository": "jacksonpjwilson-dev/Project-HQ-Dashboard",
+    "nodes": [
+      {
+        "id": "hq.app",
+        "title": "Headquarters",
+        "kind": "application",
+        "owner": "Native application",
+        "purpose": "Ecosystem monitoring & operations",
+        "source": "ios/HeadQuarter/HeadQuarter/Services/AppStore.swift",
+        "setup": "Connect a health-only reporting endpoint. HQ cannot inspect this app’s private runtime.",
+        "lane": 1,
+        "required": true
+      },
+      {
+        "id": "hq.storage",
+        "title": "Local storage",
+        "kind": "storage",
+        "owner": "Native persistence",
+        "purpose": "Durable local application data.",
+        "source": "ios/HeadQuarter/HeadQuarter/Services/AppStore.swift",
+        "setup": "A persistence operation report from the owning app is required.",
+        "lane": 2,
+        "required": true
+      },
+      {
+        "id": "hq.monitors",
+        "title": "HTTPS & relay",
+        "kind": "source",
+        "owner": "Monitoring providers",
+        "purpose": "HTTPS & relay in Headquarters.",
+        "source": "Shared/Monitoring.swift",
+        "setup": "Configure HTTPS criteria or an authenticated relay evidence URL in workspace services.",
+        "lane": 0,
+        "required": true
+      },
+      {
+        "id": "hq.sync",
+        "title": "Workspace sync",
+        "kind": "source",
+        "owner": "SyncCoordinator",
+        "purpose": "Workspace sync in Headquarters.",
+        "source": "HeadQuarter/Services/SyncCoordinator.swift",
+        "setup": "Configure an authorized relay or explicitly provisioned CloudKit account.",
+        "lane": 0,
+        "required": true
+      },
+      {
+        "id": "hq.widgets",
+        "title": "Widgets",
+        "kind": "output",
+        "owner": "SharedStorage / WidgetKit",
+        "purpose": "Widgets in Headquarters.",
+        "source": "Shared/Domain.swift",
+        "setup": "HQ can verify snapshot publication. Actual extension rendering remains a separate device check.",
+        "lane": 2,
+        "required": true
+      },
+      {
+        "id": "hq.notifications",
+        "title": "Notifications",
+        "kind": "output",
+        "owner": "AlertService",
+        "purpose": "Notifications in Headquarters.",
+        "source": "HeadQuarter/Services/Notifications.swift",
+        "setup": "Check permission in HQ settings. APNs requires separate provisioning and provider configuration.",
+        "lane": 2,
+        "required": true
+      },
+      {
+        "id": "hq.watch",
+        "title": "Watch companion",
+        "kind": "output",
+        "owner": "WatchBridge",
+        "purpose": "Watch companion in Headquarters.",
+        "source": "HeadQuarter/Services/WatchBridge.swift",
+        "setup": "Pair a Watch and verify delivery acknowledgements on both devices.",
+        "lane": 2,
+        "required": true
+      },
+      {
+        "id": "hq.github",
+        "title": "GitHub",
+        "kind": "development",
+        "owner": "Repository owner",
+        "purpose": "Source history and CI, separate from installed runtime health.",
+        "source": "jacksonpjwilson-dev/Project-HQ-Dashboard/.github/workflows",
+        "setup": "Add a GitHub service for jacksonpjwilson-dev/Project-HQ-Dashboard. Private access needs a read-only token in Keychain.",
+        "lane": 0,
+        "required": false
+      },
+      {
+        "id": "hq.build",
+        "title": "Build & deploy",
+        "kind": "development",
+        "owner": "GitHub Actions / Xcode",
+        "purpose": "Compilation and development installation.",
+        "source": "jacksonpjwilson-dev/Project-HQ-Dashboard",
+        "setup": "Connect the repository monitor. A build result does not prove the installed app is running.",
+        "lane": 1,
+        "required": false
+      }
+    ],
+    "edges": [
+      {
+        "id": "hq.app-storage",
+        "from": "hq.app",
+        "to": "hq.storage",
+        "operation": "Save",
+        "owner": "Native application",
+        "impact": "Local changes cannot be confirmed without persistence telemetry.",
+        "domain": "runtime"
+      },
+      {
+        "id": "hq.monitors-app",
+        "from": "hq.monitors",
+        "to": "hq.app",
+        "operation": "Check",
+        "owner": "Monitoring providers",
+        "impact": "Inspect the check or delivery evidence before relying on this feature.",
+        "domain": "runtime"
+      },
+      {
+        "id": "hq.sync-app",
+        "from": "hq.sync",
+        "to": "hq.app",
+        "operation": "Merge",
+        "owner": "SyncCoordinator",
+        "impact": "Inspect the check or delivery evidence before relying on this feature.",
+        "domain": "runtime"
+      },
+      {
+        "id": "hq.storage-widgets",
+        "from": "hq.storage",
+        "to": "hq.widgets",
+        "operation": "Snapshot",
+        "owner": "SharedStorage",
+        "impact": "Inspect the check or delivery evidence before relying on this feature.",
+        "domain": "runtime"
+      },
+      {
+        "id": "hq.app-notifications",
+        "from": "hq.app",
+        "to": "hq.notifications",
+        "operation": "Notify",
+        "owner": "AlertService",
+        "impact": "Inspect the check or delivery evidence before relying on this feature.",
+        "domain": "runtime"
+      },
+      {
+        "id": "hq.app-watch",
+        "from": "hq.app",
+        "to": "hq.watch",
+        "operation": "Deliver",
+        "owner": "WatchBridge",
+        "impact": "Inspect the check or delivery evidence before relying on this feature.",
+        "domain": "runtime"
+      },
+      {
+        "id": "hq.github-build",
+        "from": "hq.github",
+        "to": "hq.build",
+        "operation": "Build",
+        "owner": "GitHub Actions",
+        "impact": "Development delivery may be blocked; runtime availability remains separate.",
+        "domain": "development"
+      }
+    ]
+  },
+  {
+    "id": "ykf",
+    "name": "YKF Tracker",
+    "aliases": [
+      "YKF Arrivals"
+    ],
+    "asset": "BrandYKF",
+    "theme": "ykf",
+    "summary": "Flight tracking & arrival evidence",
+    "repository": "jacksonpjwilson-dev/ykf-tracker",
+    "nodes": [
+      {
+        "id": "ykf.app",
+        "title": "YKF Tracker",
+        "kind": "application",
+        "owner": "Native application",
+        "purpose": "Flight tracking & arrival evidence",
+        "source": "apple/YKFArrivals/Store.swift",
+        "setup": "Connect a health-only reporting endpoint. HQ cannot inspect this app’s private runtime.",
+        "lane": 1,
+        "required": true
+      },
+      {
+        "id": "ykf.storage",
+        "title": "Local storage",
+        "kind": "storage",
+        "owner": "Native persistence",
+        "purpose": "Durable local application data.",
+        "source": "apple/YKFArrivals/Store.swift",
+        "setup": "A persistence operation report from the owning app is required.",
+        "lane": 2,
+        "required": true
+      },
+      {
+        "id": "ykf.provider",
+        "title": "Flight provider",
+        "kind": "source",
+        "owner": "Python tracker",
+        "purpose": "Flight provider in the tracker pipeline.",
+        "source": "ykf/feeds.py; ykf/skyflight.py",
+        "setup": "Provider status in a publication does not establish a current provider heartbeat.",
+        "lane": 0,
+        "required": true
+      },
+      {
+        "id": "ykf.tracker",
+        "title": "Tracker job",
+        "kind": "processor",
+        "owner": "Operational scheduler",
+        "purpose": "Tracker job in the tracker pipeline.",
+        "source": "ykf/; supervisor/cron configuration",
+        "setup": "Publish scheduled-job heartbeat, last attempt and sanitized failure stage.",
+        "lane": 1,
+        "required": true
+      },
+      {
+        "id": "ykf.feed",
+        "title": "Published flights",
+        "kind": "source",
+        "owner": "Data branch publisher",
+        "purpose": "Published flights in the tracker pipeline.",
+        "source": "apple/Shared/BackendClient.swift",
+        "setup": "HQ reads the exact public live.json contract. Stale publications stay unknown.",
+        "lane": 0,
+        "required": true
+      },
+      {
+        "id": "ykf.observer",
+        "title": "HQ feed check",
+        "kind": "monitor",
+        "owner": "Headquarters",
+        "purpose": "HQ feed check in the tracker pipeline.",
+        "source": "apple/Shared/BackendClient.swift",
+        "setup": "Refresh this feed from HQ. Aircraft positions and private host logs are not accessible.",
+        "lane": 2,
+        "required": true
+      },
+      {
+        "id": "ykf.alerts",
+        "title": "Arrival alerts",
+        "kind": "output",
+        "owner": "Tracker / notification service",
+        "purpose": "Arrival alerts in the tracker pipeline.",
+        "source": "apple/YKFArrivals/Notifications.swift",
+        "setup": "Report actual alert generation and delivery outcomes.",
+        "lane": 2,
+        "required": true
+      },
+      {
+        "id": "ykf.github",
+        "title": "GitHub",
+        "kind": "development",
+        "owner": "Repository owner",
+        "purpose": "Source history and CI, separate from installed runtime health.",
+        "source": "jacksonpjwilson-dev/ykf-tracker/.github/workflows",
+        "setup": "Add a GitHub service for jacksonpjwilson-dev/ykf-tracker. Private access needs a read-only token in Keychain.",
+        "lane": 0,
+        "required": false
+      },
+      {
+        "id": "ykf.build",
+        "title": "Build & deploy",
+        "kind": "development",
+        "owner": "GitHub Actions / Xcode",
+        "purpose": "Compilation and development installation.",
+        "source": "jacksonpjwilson-dev/ykf-tracker",
+        "setup": "Connect the repository monitor. A build result does not prove the installed app is running.",
+        "lane": 1,
+        "required": false
+      }
+    ],
+    "edges": [
+      {
+        "id": "ykf.app-storage",
+        "from": "ykf.app",
+        "to": "ykf.storage",
+        "operation": "Save",
+        "owner": "Native application",
+        "impact": "Local changes cannot be confirmed without persistence telemetry.",
+        "domain": "runtime"
+      },
+      {
+        "id": "ykf.provider-tracker",
+        "from": "ykf.provider",
+        "to": "ykf.tracker",
+        "operation": "Poll",
+        "owner": "Python tracker",
+        "impact": "Flight evidence or alerts can become stale. No aircraft position is inferred.",
+        "domain": "runtime"
+      },
+      {
+        "id": "ykf.tracker-feed",
+        "from": "ykf.tracker",
+        "to": "ykf.feed",
+        "operation": "Publish",
+        "owner": "Data branch publisher",
+        "impact": "Flight evidence or alerts can become stale. No aircraft position is inferred.",
+        "domain": "runtime"
+      },
+      {
+        "id": "ykf.feed-app",
+        "from": "ykf.feed",
+        "to": "ykf.app",
+        "operation": "Fetch",
+        "owner": "BackendClient",
+        "impact": "Flight evidence or alerts can become stale. No aircraft position is inferred.",
+        "domain": "runtime"
+      },
+      {
+        "id": "ykf.feed-observer",
+        "from": "ykf.feed",
+        "to": "ykf.observer",
+        "operation": "HQ read",
+        "owner": "Headquarters",
+        "impact": "Flight evidence or alerts can become stale. No aircraft position is inferred.",
+        "domain": "runtime"
+      },
+      {
+        "id": "ykf.app-alerts",
+        "from": "ykf.app",
+        "to": "ykf.alerts",
+        "operation": "Notify",
+        "owner": "Notification service",
+        "impact": "Flight evidence or alerts can become stale. No aircraft position is inferred.",
+        "domain": "runtime"
+      },
+      {
+        "id": "ykf.github-build",
+        "from": "ykf.github",
+        "to": "ykf.build",
+        "operation": "Build",
+        "owner": "GitHub Actions",
+        "impact": "Development delivery may be blocked; runtime availability remains separate.",
+        "domain": "development"
+      }
+    ]
+  },
+  {
+    "id": "briefing",
+    "name": "Daily Briefing",
+    "aliases": [],
+    "asset": "BrandDailyBriefing",
+    "theme": "briefing",
+    "summary": "Daily planning & information",
+    "repository": "jacksonpjwilson-dev/daily-briefing-launch",
+    "nodes": [
+      {
+        "id": "briefing.app",
+        "title": "Daily Briefing",
+        "kind": "application",
+        "owner": "Native application",
+        "purpose": "Daily planning & information",
+        "source": "native/DailyBriefing/Core/RefreshCoordinator.swift",
+        "setup": "Connect a health-only reporting endpoint. HQ cannot inspect this app’s private runtime.",
+        "lane": 1,
+        "required": true
+      },
+      {
+        "id": "briefing.storage",
+        "title": "Local storage",
+        "kind": "storage",
+        "owner": "Native persistence",
+        "purpose": "Durable local application data.",
+        "source": "native/DailyBriefing/Core/RefreshCoordinator.swift",
+        "setup": "A persistence operation report from the owning app is required.",
+        "lane": 2,
+        "required": true
+      },
+      {
+        "id": "briefing.calendar",
+        "title": "Apple Calendar",
+        "kind": "source",
+        "owner": "CalendarService",
+        "purpose": "Events and selected work calendar.",
+        "source": "native/DailyBriefing/Services/CalendarService.swift",
+        "setup": "Open Daily Briefing Connections to select calendars and authorize EventKit. HQ cannot read its permission state.",
+        "lane": 0,
+        "required": true
+      },
+      {
+        "id": "briefing.reminders",
+        "title": "Reminders",
+        "kind": "source",
+        "owner": "CalendarService",
+        "purpose": "Selected reminders.",
+        "source": "native/DailyBriefing/Services/CalendarService.swift",
+        "setup": "Authorize Reminders in Daily Briefing and select the lists to use.",
+        "lane": 0,
+        "required": true
+      },
+      {
+        "id": "briefing.weather",
+        "title": "Apple Weather",
+        "kind": "source",
+        "owner": "WeatherProvider",
+        "purpose": "WeatherKit forecasts with location.",
+        "source": "native/DailyBriefing/Services/DataProviders.swift",
+        "setup": "WeatherKitConfigured must be provisioned and location authorized in Daily Briefing.",
+        "lane": 0,
+        "required": true
+      },
+      {
+        "id": "briefing.aviation",
+        "title": "METAR / TAF",
+        "kind": "source",
+        "owner": "AviationProvider",
+        "purpose": "Actual aviationweather.gov API products.",
+        "source": "native/DailyBriefing/Services/DataProviders.swift",
+        "setup": "Configure ICAO airports in Daily Briefing. Export per-product outcomes to HQ.",
+        "lane": 0,
+        "required": true
+      },
+      {
+        "id": "briefing.summary",
+        "title": "AI summary",
+        "kind": "processor",
+        "owner": "HTTPSummaryProvider",
+        "purpose": "Optional authenticated HTTPS summary.",
+        "source": "native/DailyBriefing/Services/DataProviders.swift",
+        "setup": "Configure the approved AI endpoint and its Keychain credential in Daily Briefing. No Grok execution API is inferred.",
+        "lane": 1,
+        "required": true
+      },
+      {
+        "id": "briefing.email",
+        "title": "Email digest",
+        "kind": "source",
+        "owner": "EmailProvider boundary",
+        "purpose": "Expected email input; native provider implementation is not connected.",
+        "source": "native/DailyBriefing/Services/DataProviders.swift; App/BriefingController.swift",
+        "setup": "Implement and authorize the EmailProvider boundary in Daily Briefing. Its controller currently reports email disconnected; Gmail requires a registered client and secure token exchange.",
+        "lane": 0,
+        "required": true
+      },
+      {
+        "id": "briefing.widgets",
+        "title": "Widgets",
+        "kind": "output",
+        "owner": "SharedSnapshot",
+        "purpose": "Published local briefing snapshot.",
+        "source": "native/DailyBriefing/Shared/SharedSnapshot.swift",
+        "setup": "Report actual snapshot publication from Daily Briefing.",
+        "lane": 2,
+        "required": true
+      },
+      {
+        "id": "briefing.notifications",
+        "title": "Notifications",
+        "kind": "output",
+        "owner": "DeliveryServices",
+        "purpose": "Local planned delivery.",
+        "source": "native/DailyBriefing/Services/DeliveryServices.swift",
+        "setup": "Authorize in Daily Briefing and report actual scheduling/delivery results.",
+        "lane": 2,
+        "required": true
+      },
+      {
+        "id": "briefing.github",
+        "title": "GitHub",
+        "kind": "development",
+        "owner": "Repository owner",
+        "purpose": "Source history and CI, separate from installed runtime health.",
+        "source": "jacksonpjwilson-dev/daily-briefing-launch/.github/workflows",
+        "setup": "Add a GitHub service for jacksonpjwilson-dev/daily-briefing-launch. Private access needs a read-only token in Keychain.",
+        "lane": 0,
+        "required": false
+      },
+      {
+        "id": "briefing.build",
+        "title": "Build & deploy",
+        "kind": "development",
+        "owner": "GitHub Actions / Xcode",
+        "purpose": "Compilation and development installation.",
+        "source": "jacksonpjwilson-dev/daily-briefing-launch",
+        "setup": "Connect the repository monitor. A build result does not prove the installed app is running.",
+        "lane": 1,
+        "required": false
+      }
+    ],
+    "edges": [
+      {
+        "id": "briefing.app-storage",
+        "from": "briefing.app",
+        "to": "briefing.storage",
+        "operation": "Save",
+        "owner": "Native application",
+        "impact": "Local changes cannot be confirmed without persistence telemetry.",
+        "domain": "runtime"
+      },
+      {
+        "id": "briefing.calendar-app",
+        "from": "briefing.calendar",
+        "to": "briefing.app",
+        "operation": "Events",
+        "owner": "CalendarService",
+        "impact": "Affected briefing sections may be incomplete. Open the inspector for source-specific setup.",
+        "domain": "runtime"
+      },
+      {
+        "id": "briefing.reminders-app",
+        "from": "briefing.reminders",
+        "to": "briefing.app",
+        "operation": "Tasks",
+        "owner": "CalendarService",
+        "impact": "Affected briefing sections may be incomplete. Open the inspector for source-specific setup.",
+        "domain": "runtime"
+      },
+      {
+        "id": "briefing.weather-app",
+        "from": "briefing.weather",
+        "to": "briefing.app",
+        "operation": "Forecast",
+        "owner": "WeatherProvider",
+        "impact": "Affected briefing sections may be incomplete. Open the inspector for source-specific setup.",
+        "domain": "runtime"
+      },
+      {
+        "id": "briefing.aviation-app",
+        "from": "briefing.aviation",
+        "to": "briefing.app",
+        "operation": "Reports",
+        "owner": "AviationProvider",
+        "impact": "Affected briefing sections may be incomplete. Open the inspector for source-specific setup.",
+        "domain": "runtime"
+      },
+      {
+        "id": "briefing.email-app",
+        "from": "briefing.email",
+        "to": "briefing.app",
+        "operation": "Expected email input",
+        "owner": "Configured backend",
+        "impact": "Affected briefing sections may be incomplete. Open the inspector for source-specific setup.",
+        "domain": "runtime"
+      },
+      {
+        "id": "briefing.app-summary",
+        "from": "briefing.app",
+        "to": "briefing.summary",
+        "operation": "Summarize",
+        "owner": "HTTPSummaryProvider",
+        "impact": "Affected briefing sections may be incomplete. Open the inspector for source-specific setup.",
+        "domain": "runtime"
+      },
+      {
+        "id": "briefing.storage-widgets",
+        "from": "briefing.storage",
+        "to": "briefing.widgets",
+        "operation": "Snapshot",
+        "owner": "SharedSnapshot",
+        "impact": "Affected briefing sections may be incomplete. Open the inspector for source-specific setup.",
+        "domain": "runtime"
+      },
+      {
+        "id": "briefing.app-notifications",
+        "from": "briefing.app",
+        "to": "briefing.notifications",
+        "operation": "Schedule",
+        "owner": "DeliveryServices",
+        "impact": "Affected briefing sections may be incomplete. Open the inspector for source-specific setup.",
+        "domain": "runtime"
+      },
+      {
+        "id": "briefing.github-build",
+        "from": "briefing.github",
+        "to": "briefing.build",
+        "operation": "Build",
+        "owner": "GitHub Actions",
+        "impact": "Development delivery may be blocked; runtime availability remains separate.",
+        "domain": "development"
+      }
+    ]
+  },
+  {
+    "id": "stack",
+    "name": "Stack",
+    "aliases": [],
+    "asset": "BrandStack",
+    "theme": "stack",
+    "summary": "Finance, accounts & transactions",
+    "repository": "jacksonpjwilson-dev/stack-launch",
+    "nodes": [
+      {
+        "id": "stack.app",
+        "title": "Stack",
+        "kind": "application",
+        "owner": "Native application",
+        "purpose": "Finance, accounts & transactions",
+        "source": "native/Sources/StackCore/Operations.swift",
+        "setup": "Connect a health-only reporting endpoint. HQ cannot inspect this app’s private runtime.",
+        "lane": 1,
+        "required": true
+      },
+      {
+        "id": "stack.storage",
+        "title": "Local storage",
+        "kind": "storage",
+        "owner": "Native persistence",
+        "purpose": "Durable local application data.",
+        "source": "native/Sources/StackCore/Operations.swift",
+        "setup": "A persistence operation report from the owning app is required.",
+        "lane": 2,
+        "required": true
+      },
+      {
+        "id": "stack.imports",
+        "title": "Manual / CSV",
+        "kind": "source",
+        "owner": "User / CSV parser",
+        "purpose": "Manual / CSV in Stack.",
+        "source": "native/Sources/StackCore/CSV.swift",
+        "setup": "Report sanitized import counts and errors without exposing balances or transactions.",
+        "lane": 0,
+        "required": true
+      },
+      {
+        "id": "stack.bank",
+        "title": "Bank provider",
+        "kind": "source",
+        "owner": "FinancialProvider",
+        "purpose": "Bank provider in Stack.",
+        "source": "native/Sources/StackCore/Sync.swift",
+        "setup": "A provider protocol exists. An authorized account bridge is still required. BMO automation is a goal, not a verified live connection.",
+        "lane": 0,
+        "required": true
+      },
+      {
+        "id": "stack.category",
+        "title": "Categorization",
+        "kind": "processor",
+        "owner": "StackCore",
+        "purpose": "Categorization in Stack.",
+        "source": "native/Sources/StackCore/Operations.swift",
+        "setup": "Publish classification and correction outcomes, not financial records.",
+        "lane": 1,
+        "required": true
+      },
+      {
+        "id": "stack.widgets",
+        "title": "Finance widgets",
+        "kind": "output",
+        "owner": "WidgetCache",
+        "purpose": "Finance widgets in Stack.",
+        "source": "native/Stack/WidgetCache.swift",
+        "setup": "Widget snapshots retain the app’s existing privacy rules.",
+        "lane": 2,
+        "required": true
+      },
+      {
+        "id": "stack.github",
+        "title": "GitHub",
+        "kind": "development",
+        "owner": "Repository owner",
+        "purpose": "Source history and CI, separate from installed runtime health.",
+        "source": "jacksonpjwilson-dev/stack-launch/.github/workflows",
+        "setup": "Add a GitHub service for jacksonpjwilson-dev/stack-launch. Private access needs a read-only token in Keychain.",
+        "lane": 0,
+        "required": false
+      },
+      {
+        "id": "stack.build",
+        "title": "Build & deploy",
+        "kind": "development",
+        "owner": "GitHub Actions / Xcode",
+        "purpose": "Compilation and development installation.",
+        "source": "jacksonpjwilson-dev/stack-launch",
+        "setup": "Connect the repository monitor. A build result does not prove the installed app is running.",
+        "lane": 1,
+        "required": false
+      }
+    ],
+    "edges": [
+      {
+        "id": "stack.app-storage",
+        "from": "stack.app",
+        "to": "stack.storage",
+        "operation": "Save",
+        "owner": "Native application",
+        "impact": "Local changes cannot be confirmed without persistence telemetry.",
+        "domain": "runtime"
+      },
+      {
+        "id": "stack.imports-category",
+        "from": "stack.imports",
+        "to": "stack.category",
+        "operation": "Parse",
+        "owner": "CSV parser",
+        "impact": "Financial data freshness cannot be assumed without a verified import or sync report.",
+        "domain": "runtime"
+      },
+      {
+        "id": "stack.bank-category",
+        "from": "stack.bank",
+        "to": "stack.category",
+        "operation": "Sync pages",
+        "owner": "FinancialProvider",
+        "impact": "Financial data freshness cannot be assumed without a verified import or sync report.",
+        "domain": "runtime"
+      },
+      {
+        "id": "stack.category-app",
+        "from": "stack.category",
+        "to": "stack.app",
+        "operation": "Reconcile",
+        "owner": "StackCore",
+        "impact": "Financial data freshness cannot be assumed without a verified import or sync report.",
+        "domain": "runtime"
+      },
+      {
+        "id": "stack.storage-widgets",
+        "from": "stack.storage",
+        "to": "stack.widgets",
+        "operation": "Snapshot",
+        "owner": "WidgetCache",
+        "impact": "Financial data freshness cannot be assumed without a verified import or sync report.",
+        "domain": "runtime"
+      },
+      {
+        "id": "stack.github-build",
+        "from": "stack.github",
+        "to": "stack.build",
+        "operation": "Build",
+        "owner": "GitHub Actions",
+        "impact": "Development delivery may be blocked; runtime availability remains separate.",
+        "domain": "development"
+      }
+    ]
+  },
+  {
+    "id": "stocked",
+    "name": "Stocked",
+    "aliases": [
+      "Pantry"
+    ],
+    "asset": "BrandStocked",
+    "theme": "stocked",
+    "summary": "Inventory, shopping & supplies",
+    "repository": "jacksonpjwilson-dev/pantry",
+    "nodes": [
+      {
+        "id": "stocked.app",
+        "title": "Stocked",
+        "kind": "application",
+        "owner": "Native application",
+        "purpose": "Inventory, shopping & supplies",
+        "source": "native/Pantry/PantryStore.swift",
+        "setup": "Connect a health-only reporting endpoint. HQ cannot inspect this app’s private runtime.",
+        "lane": 1,
+        "required": true
+      },
+      {
+        "id": "stocked.storage",
+        "title": "Local storage",
+        "kind": "storage",
+        "owner": "Native persistence",
+        "purpose": "Durable local application data.",
+        "source": "native/Pantry/PantryStore.swift",
+        "setup": "A persistence operation report from the owning app is required.",
+        "lane": 2,
+        "required": true
+      },
+      {
+        "id": "stocked.inventory",
+        "title": "Inventory edits",
+        "kind": "source",
+        "owner": "User / PantryStore",
+        "purpose": "Inventory edits in Stocked.",
+        "source": "native/Pantry/PantryStore.swift",
+        "setup": "Publish health-only mutation outcomes; do not export inventory contents.",
+        "lane": 0,
+        "required": true
+      },
+      {
+        "id": "stocked.firebase",
+        "title": "Firebase sync",
+        "kind": "source",
+        "owner": "Firebase / PantryStore",
+        "purpose": "Firebase sync in Stocked.",
+        "source": "native/Pantry/FirebaseSetup.swift",
+        "setup": "Provision the registered client, authenticate, and report actual listener/write results.",
+        "lane": 0,
+        "required": true
+      },
+      {
+        "id": "stocked.logbook",
+        "title": "Logbook import",
+        "kind": "processor",
+        "owner": "LegacyLogbookAdapter",
+        "purpose": "Logbook import in Stocked.",
+        "source": "native/PantryCore/LogbookAdapter.swift",
+        "setup": "Existing adapter accepts legacy version-2 snapshots. Authorize a versioned native Logbook contract before connecting.",
+        "lane": 1,
+        "required": true
+      },
+      {
+        "id": "stocked.report",
+        "title": "HQ reporting",
+        "kind": "monitor",
+        "owner": "TelemetryAdapter",
+        "purpose": "HQ reporting in Stocked.",
+        "source": "native/Pantry/TelemetryAdapter.swift",
+        "setup": "Configure an HTTPS endpoint and device-local token in Stocked. Adapt HealthReport to the HQ relay contract.",
+        "lane": 2,
+        "required": true
+      },
+      {
+        "id": "stocked.widgets",
+        "title": "Shopping widgets",
+        "kind": "output",
+        "owner": "WidgetSnapshot",
+        "purpose": "Shopping widgets in Stocked.",
+        "source": "native/Shared/WidgetSnapshot.swift",
+        "setup": "Report local snapshot writes and ShoppingSession activity outcomes.",
+        "lane": 2,
+        "required": true
+      },
+      {
+        "id": "stocked.github",
+        "title": "GitHub",
+        "kind": "development",
+        "owner": "Repository owner",
+        "purpose": "Source history and CI, separate from installed runtime health.",
+        "source": "jacksonpjwilson-dev/pantry/.github/workflows",
+        "setup": "Add a GitHub service for jacksonpjwilson-dev/pantry. Private access needs a read-only token in Keychain.",
+        "lane": 0,
+        "required": false
+      },
+      {
+        "id": "stocked.build",
+        "title": "Build & deploy",
+        "kind": "development",
+        "owner": "GitHub Actions / Xcode",
+        "purpose": "Compilation and development installation.",
+        "source": "jacksonpjwilson-dev/pantry",
+        "setup": "Connect the repository monitor. A build result does not prove the installed app is running.",
+        "lane": 1,
+        "required": false
+      }
+    ],
+    "edges": [
+      {
+        "id": "stocked.app-storage",
+        "from": "stocked.app",
+        "to": "stocked.storage",
+        "operation": "Save",
+        "owner": "Native application",
+        "impact": "Local changes cannot be confirmed without persistence telemetry.",
+        "domain": "runtime"
+      },
+      {
+        "id": "stocked.inventory-app",
+        "from": "stocked.inventory",
+        "to": "stocked.app",
+        "operation": "Edit",
+        "owner": "PantryStore",
+        "impact": "Inventory, import or delivery evidence remains unverified until instrumented.",
+        "domain": "runtime"
+      },
+      {
+        "id": "stocked.firebase-app",
+        "from": "stocked.firebase",
+        "to": "stocked.app",
+        "operation": "Sync",
+        "owner": "Firebase SDK",
+        "impact": "Inventory, import or delivery evidence remains unverified until instrumented.",
+        "domain": "runtime"
+      },
+      {
+        "id": "stocked.logbook-app",
+        "from": "stocked.logbook",
+        "to": "stocked.app",
+        "operation": "Import",
+        "owner": "LegacyLogbookAdapter",
+        "impact": "Inventory, import or delivery evidence remains unverified until instrumented.",
+        "domain": "runtime"
+      },
+      {
+        "id": "stocked.app-report",
+        "from": "stocked.app",
+        "to": "stocked.report",
+        "operation": "Report",
+        "owner": "TelemetryAdapter",
+        "impact": "Inventory, import or delivery evidence remains unverified until instrumented.",
+        "domain": "runtime"
+      },
+      {
+        "id": "stocked.storage-widgets",
+        "from": "stocked.storage",
+        "to": "stocked.widgets",
+        "operation": "Snapshot",
+        "owner": "WidgetSnapshot",
+        "impact": "Inventory, import or delivery evidence remains unverified until instrumented.",
+        "domain": "runtime"
+      },
+      {
+        "id": "stocked.github-build",
+        "from": "stocked.github",
+        "to": "stocked.build",
+        "operation": "Build",
+        "owner": "GitHub Actions",
+        "impact": "Development delivery may be blocked; runtime availability remains separate.",
+        "domain": "development"
+      }
+    ]
+  }
+]
