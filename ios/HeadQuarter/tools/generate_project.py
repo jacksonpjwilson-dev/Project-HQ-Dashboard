@@ -31,12 +31,14 @@ for target in ['HeadQuarter','HeadQuarterWidgets']:
             'HeadQuarter/Assets.xcassets',
             'HeadQuarter/Resources/Opening.mp4',
             'HeadQuarter/Resources/LaunchScreen.storyboard',
+            'Shared/ecosystem.json',
         ]
     resource_types = {
         '.xcassets': 'folder.assetcatalog',
         '.storyboard': 'file.storyboard',
         '.mp4': 'video.mp4',
         '.xcprivacy': 'text.xml',
+        '.json': 'text.json',
     }
     resources[target] = [file(path, resource_types[Path(path).suffix]) for path in paths_for_target]
 configs = []
@@ -94,7 +96,23 @@ watch_proxy=add('proxy:watch','PBXContainerItemProxy',containerPortal=project_id
 objects[app_id]['dependencies'].append(add('dependency:watch','PBXTargetDependency',target=watch_id,targetProxy=watch_proxy))
 watch_embed_file=add('embed:watch','PBXBuildFile',fileRef=watch_product,settings={'ATTRIBUTES':['RemoveHeadersOnCopy']})
 objects[app_id]['buildPhases'].append(add('phase:embed-watch','PBXCopyFilesBuildPhase',buildActionMask=2147483647,dstPath='$(CONTENTS_FOLDER_PATH)/Watch',dstSubfolderSpec=16,files=[watch_embed_file],name='Embed Watch Content',runOnlyForDeploymentPostprocessing=0))
-add('project','PBXProject',attributes={'BuildIndependentTargetsInParallel':'YES','LastUpgradeCheck':'1620','TargetAttributes':{app_id:{'CreatedOnToolsVersion':'16.2','SystemCapabilities':{'com.apple.ApplicationGroups.iOS':{'enabled':1}}},widget_id:{'CreatedOnToolsVersion':'16.2','SystemCapabilities':{'com.apple.ApplicationGroups.iOS':{'enabled':1}}},test_id:{'CreatedOnToolsVersion':'16.2','TestTargetID':app_id}}},buildConfigurationList=project_configs,compatibilityVersion='Xcode 14.0',developmentRegion='en',hasScannedForEncodings=0,knownRegions=['en','Base'],mainGroup=main_group,productRefGroup=products_group,projectDirPath='',projectRoot='',targets=[app_id,widget_id,test_id,watch_id])
+# UI tests exercise the real app without replacing data or integration providers.
+ui_name = 'HeadQuarterUITests'
+ui_id = identifier('target:' + ui_name)
+ui_paths = sorted(str(path.relative_to(ROOT)) for path in ROOT.glob('HeadQuarterUITests/*.swift'))
+ui_refs = [file(path, 'sourcecode.swift') for path in ui_paths]
+objects[main_group]['children'].append(group('UI Tests', ui_refs))
+ui_product = add('product:' + ui_name, 'PBXFileReference', explicitFileType='wrapper.cfbundle',
+                 includeInIndex=0, path=ui_name + '.xctest', sourceTree='BUILT_PRODUCTS_DIR')
+objects[products_group]['children'].append(ui_product)
+ui_settings = dict(common, PRODUCT_BUNDLE_IDENTIFIER='com.headquarter.app.uitests',
+                   PRODUCT_NAME='$(TARGET_NAME)', GENERATE_INFOPLIST_FILE='YES', TEST_TARGET_NAME='HeadQuarter')
+add('target:' + ui_name, 'PBXNativeTarget', buildConfigurationList=config_list(ui_name, ui_settings),
+    buildPhases=[phase(ui_name, 'PBXSourcesBuildPhase', [build_file(ui_name, ref) for ref in ui_refs]),
+                 phase(ui_name, 'PBXFrameworksBuildPhase', []), phase(ui_name, 'PBXResourcesBuildPhase', [])],
+    buildRules=[], dependencies=[app_dependency], name=ui_name, productName=ui_name,
+    productReference=ui_product, productType='com.apple.product-type.bundle.ui-testing')
+add('project','PBXProject',attributes={'BuildIndependentTargetsInParallel':'YES','LastUpgradeCheck':'1620','TargetAttributes':{app_id:{'CreatedOnToolsVersion':'16.2','SystemCapabilities':{'com.apple.ApplicationGroups.iOS':{'enabled':1}}},widget_id:{'CreatedOnToolsVersion':'16.2','SystemCapabilities':{'com.apple.ApplicationGroups.iOS':{'enabled':1}}},test_id:{'CreatedOnToolsVersion':'16.2','TestTargetID':app_id},ui_id:{'CreatedOnToolsVersion':'16.2','TestTargetID':app_id}}},buildConfigurationList=project_configs,compatibilityVersion='Xcode 14.0',developmentRegion='en',hasScannedForEncodings=0,knownRegions=['en','Base'],mainGroup=main_group,productRefGroup=products_group,projectDirPath='',projectRoot='',targets=[app_id,widget_id,test_id,watch_id,ui_id])
 def serialize(value,depth=0):
     if isinstance(value,dict): return '{\n'+''.join('\t'*(depth+1)+json.dumps(str(k))+' = '+serialize(v,depth+1)+';\n' for k,v in value.items())+'\t'*depth+'}'
     if isinstance(value,list): return '(\n'+''.join('\t'*(depth+1)+serialize(v,depth+1)+',\n' for v in value)+'\t'*depth+')'
@@ -109,7 +127,7 @@ def ref(name): return f'<BuildableReference BuildableIdentifier="primary" Bluepr
 (schemes/'HeadQuarter.xcscheme').write_text(f"""<?xml version="1.0" encoding="UTF-8"?>
 <Scheme LastUpgradeVersion="1620" version="1.3">
 <BuildAction parallelizeBuildables="YES" buildImplicitDependencies="YES"><BuildActionEntries><BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">{ref('HeadQuarter')}</BuildActionEntry></BuildActionEntries></BuildAction>
-<TestAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv="YES"><Testables><TestableReference skipped="NO">{ref('HeadQuarterTests')}</TestableReference></Testables></TestAction>
+<TestAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv="YES"><Testables><TestableReference skipped="NO">{ref('HeadQuarterTests')}</TestableReference><TestableReference skipped="NO">{ref('HeadQuarterUITests')}</TestableReference></Testables></TestAction>
 <LaunchAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.LLDB" launchStyle="0" useCustomWorkingDirectory="NO" ignoresPersistentStateOnLaunch="NO" debugDocumentVersioning="YES" debugServiceExtension="internal" allowLocationSimulation="YES"><BuildableProductRunnable runnableDebuggingMode="0">{ref('HeadQuarter')}</BuildableProductRunnable></LaunchAction>
 <ProfileAction buildConfiguration="Release" shouldUseLaunchSchemeArgsEnv="YES" savedToolIdentifier="" useCustomWorkingDirectory="NO" debugDocumentVersioning="YES"><BuildableProductRunnable runnableDebuggingMode="0">{ref('HeadQuarter')}</BuildableProductRunnable></ProfileAction>
 <AnalyzeAction buildConfiguration="Debug"/><ArchiveAction buildConfiguration="Release" revealArchiveInOrganizer="YES"/>

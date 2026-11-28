@@ -3,6 +3,7 @@ import SwiftData
 
 struct RootView: View {
     @Environment(AppStore.self) private var store
+    @State private var operations = OperationsStore()
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("pendingRoute") private var pendingRoute = ""
     @AppStorage("foregroundCheckMinutes") private var checkMinutes = 5
@@ -10,16 +11,24 @@ struct RootView: View {
     var body: some View {
         @Bindable var store = store
         TabView(selection: $store.selectedTab) {
-            NavigationStack { OverviewView() }.tabItem { Label("Overview", systemImage: "square.grid.2x2") }.tag(0)
+            NavigationStack { MissionOverviewView(operations: operations) }.tabItem { Label("Overview", systemImage: "square.grid.2x2") }.tag(0)
             NavigationStack(path: $store.projectPath) {
-                ProjectsView().navigationDestination(for: UUID.self) { id in
-                    if let project = store.projects.first(where: { $0.id == id }) { ProjectDetailView(project: project) }
+                SystemsView(operations: operations).navigationDestination(for: UUID.self) { id in
+                    if let project = store.projects.first(where: { $0.id == id }) {
+                        if let system = operations.systems.first(where: { $0.matches(project.name) }) {
+                            OperationsDashboard(system: system, operations: operations)
+                        } else { ProjectDetailView(project: project) }
+                    }
                     else { ContentUnavailableView("Project unavailable", systemImage: "folder.badge.questionmark") }
                 }
-            }.tabItem { Label("Projects", systemImage: "square.stack.3d.up") }.tag(1)
+            }.tabItem { Label("Systems", systemImage: "square.stack.3d.up") }.tag(1)
             NavigationStack { TasksView() }.tabItem { Label("Tasks", systemImage: "checklist") }.tag(2)
-            NavigationStack { ActivityView() }.tabItem { Label("Activity", systemImage: "waveform.path.ecg") }.tag(3)
-            NavigationStack { SettingsView() }.tabItem { Label("Settings", systemImage: "gearshape") }.tag(4)
+            NavigationStack { MissionHistoryView(operations: operations) }.tabItem { Label("Activity", systemImage: "waveform.path.ecg") }.tag(3)
+            NavigationStack {
+                SettingsView().navigationDestination(for: UUID.self) { id in
+                    if let project = store.projects.first(where: { $0.id == id }) { ProjectDetailView(project: project) }
+                }
+            }.tabItem { Label("Settings", systemImage: "gearshape") }.tag(4)
         }
         .tint(.indigo)
         .preferredColorScheme(appearance == "dark" ? .dark : appearance == "light" ? .light : nil)
@@ -31,11 +40,12 @@ struct RootView: View {
             store.publishSnapshot()
             consumeIntentRoute()
             await store.operations.expire()
+            await operations.refresh(store: store)
         }
         .task(id: checkMinutes) {
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .seconds(max(1, checkMinutes) * 60)) } catch { return }
-                if scenePhase == .active { await store.refresh(); await store.syncAutomatically() }
+                if scenePhase == .active { await store.refresh(); await operations.refresh(store: store, includeBoundServices: false); await store.syncAutomatically() }
             }
         }
         .onChange(of: pendingRoute) { _, _ in consumeIntentRoute() }

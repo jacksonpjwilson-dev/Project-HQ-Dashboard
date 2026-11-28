@@ -293,6 +293,14 @@ import Observation
     func route(_ url: URL) {
         guard url.scheme == "headquarter" else { return }
         switch url.host {
+        case "systems":
+            selectedTab = 1; projectPath = []
+        case "system":
+            guard let systems = try? EcosystemRegistry.load(),
+                  let system = systems.first(where: { $0.id == url.lastPathComponent }),
+                  let project = projects.first(where: { system.matches($0.name) })
+            else { errorMessage = "No workspace is linked to this system. Open Systems to inspect or configure it."; return }
+            selectedTab = 1; projectPath = [project.id]
         case "project":
             guard let id = UUID(uuidString: url.lastPathComponent), projects.contains(where: { $0.id == id }) else { errorMessage = "This project is no longer available."; return }
             selectedTab = 1; projectPath = [id]

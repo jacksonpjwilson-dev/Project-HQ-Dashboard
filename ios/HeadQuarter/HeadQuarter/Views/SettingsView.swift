@@ -17,6 +17,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section("Workspace") {
+                NavigationLink("Manage projects and services") { ProjectsView() }
                 NavigationLink("Ecosystem monitoring connections") { MonitoringSetupView() }
                 NavigationLink("Project & task synchronization") { SyncSettingsView() }
                 NavigationLink("Dashboard card order") { DashboardOrderView() }
